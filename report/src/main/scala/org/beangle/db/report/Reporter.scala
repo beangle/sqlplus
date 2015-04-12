@@ -139,23 +139,28 @@ class Reporter(val report: Report, val dir: String) extends Logging {
 
   def renderModule(module: Module, template: String, data: collection.mutable.HashMap[String, Any]) {
     data.put("module", module)
-    logger.info(s"rendering module $module...")
+    if (!module.tables.isEmpty) {
+      logger.info(s"rendering module $module...")
+      render(data, template, module.path)
+    }
 
-    render(data, template, module.path)
     for (module <- module.children) renderModule(module, template, data)
   }
 
-  def genImages() {
+  def genImages(): Unit = {
+    if (report.images.isEmpty) return
+
     val data = new collection.mutable.HashMap[String, Any]()
     data += ("database" -> database)
     data += ("report" -> report)
+
     for (image <- report.images) {
       data.put("image", image)
       genImage(data, image.name)
     }
   }
 
-  private def render(data: Any, template: String, result: String = "") {
+  private def render(data: collection.mutable.HashMap[String, Any], template: String, result: String = "") {
     val wikiResult = if (isEmpty(result)) template else result;
     val file = new File(dir + wikiResult + report.extension)
     file.getParentFile().mkdirs()

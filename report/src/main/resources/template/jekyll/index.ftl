@@ -15,6 +15,10 @@
 [/#if]
 
 ##### 2. 具体模块明细
+[#assign idx=1/]
 [#list report.modules as m]
-[@moduleindex "2."+(m_index+1),m;prefix,module/]
+[#if m.tables?size>0]
+  [@moduleindex "2."+idx,m;prefix,module/]
+  [#assign idx=idx+1/]
+[/#if]
 [/#list]
