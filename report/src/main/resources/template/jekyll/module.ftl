@@ -19,6 +19,6 @@
 
 [#list module.tables?sort_by("name") as table]
 
-### 表格 ${table.name?lower_case}
+### 表格 ${table.name.value?lower_case}
 [@drawtable table/]
 [/#list]

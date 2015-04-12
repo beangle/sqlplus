@@ -16,11 +16,11 @@
   <tr>
   	[#assign seq= sortedSeqs[i-1] /]
     <td>${i}</td>
-    <td>${seq.name?lower_case}<br>${seq.comment!}</td>
+    <td>${seq.name.value?lower_case}<br>${seq.comment!}</td>
     [#if sequences[i-1+seqcnt]??]
     [#assign seq= sortedSeqs[i-1+seqcnt] /]
     <td>${i+seqcnt}</td>
-    <td>${seq.name?lower_case}<br>${seq.comment!}</td>
+    <td>${seq.name.value?lower_case}<br>${seq.comment!}</td>
     [#else]
     <td></td>
     <td></td>

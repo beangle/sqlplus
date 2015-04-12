@@ -17,11 +17,11 @@
   <tr>
   	[#assign table= sortedTables[i-1] /]
     <td>${i}</td>
-    <td><a href="#table_${table.name?lower_case}">${table.name?lower_case}</a><br>${table.comment!}</td>
+    <td><a href="#table_${table.name.value?lower_case}">${table.name.value?lower_case}</a><br>${table.comment!}</td>
     [#if tables[i-1+tabcnt]??]
     [#assign table= sortedTables[i-1+tabcnt] /]
     <td>${i+tabcnt}</td>
-    <td><a href="#table_${table.name?lower_case}">${table.name?lower_case}</a><br>${table.comment!}</td>
+    <td><a href="#table_${table.name.value?lower_case}">${table.name.value?lower_case}</a><br>${table.comment!}</td>
     [#else]
     <td></td>
     <td></td>

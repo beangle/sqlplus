@@ -11,8 +11,8 @@
     <th style="background-color:#D0D3FF">注释</th>[#t/]
   </tr>
   <tr>[#t/]
-    <td>${table.name?lower_case}</td>[#t/]
-    <td>[#if table.primaryKey??][#list table.primaryKey.columns as c]${c.name?lower_case}[#if c_has_next],[/#if][/#list][/#if]</td>[#t/]
+    <td>${table.name.value?lower_case}</td>[#t/]
+    <td>[#if table.primaryKey??][#list table.primaryKey.columns as c]${c.value?lower_case}[#if c_has_next],[/#if][/#list][/#if]</td>[#t/]
     <td>${table.comment!}</td>[#t/]
   </tr>
 </table>
@@ -31,14 +31,14 @@
   [#list table.columns as col]
   <tr>[#t/]
     <td>${col_index+1}</td>[#t/]
-    <td>${col.name?lower_case}</td>[#t/]
-    <td>${col.getSqlType(dialect)?lower_case}</td>[#t/]
+    <td>${col.name.value?lower_case}</td>[#t/]
+    <td>${col.typeName?lower_case}</td>[#t/]
     <td>${col.nullable?string("是","否")}</td>[#t/]
     <td>${col.comment!}</td>[#t/]
     <td>[#assign finded=false][#t/]
         [#list table.foreignKeys as fk]
         [#if !finded]
-        [#list fk.columns as fcol][#if fcol.name==col.name]${fk.referencedTable.name?lower_case}[#assign finded=true][#break/][/#if][/#list][#t/]
+        [#list fk.columns as fcol][#if fcol.value==col.name]${fk.referencedTable.name.value?lower_case}[#assign finded=true][#break/][/#if][/#list][#t/]
         [/#if]
         [/#list]
     </td>[#t/]
@@ -59,8 +59,8 @@
   [#list table.uniqueKeys as uk]
   <tr>[#t/]
     <td>${uk_index+1}</td>[#t/]
-    <td>${uk.name?lower_case}</td>[#t/]
-    <td>[#list uk.columns as c]${c.name?lower_case}&nbsp;[/#list]</td>[#t/]
+    <td>${uk.name.value?lower_case}</td>[#t/]
+    <td>[#list uk.columns as c]${c.value?lower_case}&nbsp;[/#list]</td>[#t/]
   </tr>
   [/#list]
 </table>
@@ -78,8 +78,8 @@
   </tr>
   [#list table.indexes as idx]
   <tr>[#t/]
-    <td>${idx.name?lower_case}</td>[#t/]
-    <td>[#list idx.columns as c]${c.name?lower_case}&nbsp;[/#list]</td>[#t/]
+    <td>${idx.name.value?lower_case}</td>[#t/]
+    <td>[#list idx.columns as c]${c.value?lower_case}&nbsp;[/#list]</td>[#t/]
     <td>${idx.unique?string("是","否")}</td>[#t/]
   </tr>
   [/#list]

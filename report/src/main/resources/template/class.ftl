@@ -10,15 +10,17 @@ class UMLOptions {}
 /**
  * @note ${table.comment!}
 [#list table.foreignKeys as fk]
- * @depend - - - ${fk.referencedTable.name?lower_case}
+ * @depend - - - ${fk.referencedTable.name.value?lower_case}
  [#if !image.matches(fk.referencedTable.name)]
- [#assign referTables=referTables + [fk.referencedTable]]
+   [#if !(referTables?seq_contains(fk.referencedTable))]
+   [#assign referTables=referTables + [fk.referencedTable]]
+   [/#if]
  [/#if]
 [/#list]
  */
-class ${table.name?lower_case}{
+class ${table.name.value?lower_case}{
 [#list table.foreignKeys as fk]
- public ${fk.referencedTable.name?lower_case}  [#list fk.columns as column]${column.name?lower_case}[/#list];
+ public ${fk.referencedTable.name.value?lower_case}  [#list fk.columns as column]${column.value?lower_case}[/#list];
 [/#list]
 }
 [/#list]
@@ -35,5 +37,5 @@ class ${table.name?lower_case}{
  * @note ${database.getTable(tableid).comment!}
  * [/#if]
  */
-class ${table.name?lower_case}{}
+class ${table.name.value?lower_case}{}
 [/#list]
