@@ -36,8 +36,8 @@
   </scm>
 
   <properties>
-    <commons.version>4.2.4-SNAPSHOT</commons.version>
-    <data.version>4.1.11-SNAPSHOT</data.version>
+    <commons.version>4.2.4</commons.version>
+    <data.version>4.2.2-SNAPSHOT</data.version>
   </properties>
 
   <dependencyManagement>

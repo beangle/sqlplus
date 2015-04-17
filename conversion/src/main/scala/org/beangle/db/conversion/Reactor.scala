@@ -72,7 +72,7 @@ class Reactor(val config: Config) {
     val sequences = sourceWrapper.schema.filterSequences(config.source.sequence.includes, config.source.sequence.excludes)
     sequences foreach { n =>
       n.schema = config.target.schema
-      if (config.source.sequence.lowercase) n.toLowerCase()
+      n.toCase(config.source.sequence.lowercase)
       n.attach(config.target.dialect)
     }
     sequenceConverter.addAll(sequences)
@@ -88,7 +88,7 @@ class Reactor(val config: Config) {
     for (srcTable <- tables) {
       var targetTable = srcTable.clone()
       targetTable.updateSchema(targetWrapper.schema.name)
-      if (source.table.lowercase) targetTable.toLowerCase()
+      targetTable.toCase(source.table.lowercase)
       targetTable.attach(targetWrapper.dialect)
       tablePairs += (srcTable -> targetTable)
     }
