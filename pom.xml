@@ -36,7 +36,7 @@
   </scm>
 
   <properties>
-    <commons.version>4.2.4</commons.version>
+    <commons.version>4.2.5-SNAPSHOT</commons.version>
     <data.version>4.2.2-SNAPSHOT</data.version>
   </properties>
 

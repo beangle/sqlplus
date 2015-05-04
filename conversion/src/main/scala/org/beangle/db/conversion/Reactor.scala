@@ -32,7 +32,7 @@ object Reactor extends Logging {
 
   def main(args: Array[String]) {
     if (args.length < 1) {
-      println("Usage: ConvertReactor /path/to/your/conversion.xml");
+      println("Usage: Reactor /path/to/your/conversion.xml");
       return
     }
     val xml = scala.xml.XML.load(new FileInputStream(args(0)))
