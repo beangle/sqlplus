@@ -20,7 +20,6 @@ package org.beangle.db.report
 
 import java.io.{ File, FileInputStream }
 import java.util.Locale
-
 import org.beangle.commons.io.Files.{ / => /, forName, stringWriter }
 import org.beangle.commons.lang.ClassLoaders
 import org.beangle.commons.lang.Strings.{ isEmpty, substringAfterLast, substringBefore, substringBeforeLast }
@@ -30,21 +29,15 @@ import org.beangle.data.jdbc.util.PoolingDataSourceFactory
 import org.beangle.db.report.model.{ Module, Report }
 import org.beangle.template.freemarker.BeangleObjectWrapper
 import org.umlgraph.doclet.UmlGraph
-
 import freemarker.cache.{ ClassTemplateLoader, FileTemplateLoader, MultiTemplateLoader }
 import freemarker.template.Configuration
 import javax.sql.DataSource
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 object Reporter extends Logging {
 
-  private def checkJdkTools(): Boolean = {
-    try {
-      ClassLoaders.loadClass("com.sun.tools.javadoc.Main")
-    } catch {
-      case e: Exception => false
-    }
-    true
-  }
+  val DotReady = checkDot()
 
   def main(args: Array[String]) {
     if (!checkJdkTools()) {
@@ -88,6 +81,27 @@ object Reporter extends Logging {
       case e: Exception => e.printStackTrace
     }
   }
+
+  private def checkJdkTools(): Boolean = {
+    try {
+      ClassLoaders.loadClass("com.sun.tools.javadoc.Main")
+    } catch {
+      case e: Exception => false
+    }
+    true
+  }
+
+  private def checkDot(): Boolean = {
+    val pb = new ProcessBuilder("which", "dot")
+    pb.redirectErrorStream(true)
+    val pro = pb.start()
+    pro.waitFor()
+    val reader = new BufferedReader(new InputStreamReader(pro.getInputStream()))
+    val line = reader.readLine()
+    reader.close()
+    !line.contains("which: no")
+  }
+
 }
 
 class Reporter(val report: Report, val dir: String) extends Logging {
@@ -127,7 +141,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     data += ("database" -> database)
 
     for (page <- report.pages) {
-      if ("true" == page.iterator) {
+      if (page.iterable) {
         for (module <- report.modules)
           renderModule(module, page.name, data)
       } else {
@@ -149,6 +163,14 @@ class Reporter(val report: Report, val dir: String) extends Logging {
 
   def genImages(): Unit = {
     if (report.images.isEmpty) return
+
+    if (!Reporter.DotReady) {
+      logger.warn("""
+Cannot find dot command. images generation skipped.
+dot is a tool to generate nice-looking diagrams with a minimum of effort. It's part of GraphViz.
+see http://www.graphviz.org/doc/info/lang.html and http://www.linuxdevcenter.com/pub/a/linux/2004/05/06/graphviz_dot.html""")
+      return
+    }
 
     val data = new collection.mutable.HashMap[String, Any]()
     data += ("database" -> database)

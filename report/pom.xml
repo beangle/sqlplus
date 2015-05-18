@@ -1,5 +1,5 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.or">
+	       xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.or">
   <parent>
     <groupId>org.beangle.db</groupId>
     <artifactId>beangle-db-parent</artifactId>
@@ -8,7 +8,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>beangle-db-report</artifactId>
   <packaging>jar</packaging>
-  <name>Beangle Database Report</name>
+  <name>Beangle DB Report</name>
 
   <properties>
     <beangle.template.version>0.0.2</beangle.template.version>
@@ -37,6 +37,22 @@
     </dependency>
   </dependencies>
 
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifest>
+              <addClasspath>true</addClasspath>
+              <mainClass>org.beangle.db.report.Reporter</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
   <profiles>
     <profile>
       <id>default-tools.jar</id>
@@ -50,7 +66,7 @@
         <dependency>
           <groupId>com.sun</groupId>
           <artifactId>tools</artifactId>
-          <version>1.6.0</version>
+          <version>1.5.0</version>
           <scope>system</scope>
           <systemPath>${java.home}/../lib/tools.jar</systemPath>
         </dependency>

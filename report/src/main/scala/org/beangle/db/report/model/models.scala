@@ -24,7 +24,7 @@ import org.beangle.data.jdbc.meta.Table
 import org.beangle.commons.lang.Strings
 import org.beangle.commons.text.regex.AntPathPattern
 
-case class Page(val name: String, val iterator: String)
+case class Page(val name: String, val iterable: Boolean)
 
 trait TableContainer {
   val patterns: Array[AntPathPattern]

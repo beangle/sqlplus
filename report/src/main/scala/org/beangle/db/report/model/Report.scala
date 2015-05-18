@@ -35,7 +35,7 @@ object Report {
     (xml \ "modules" \ "module").foreach { ele => parseModule(ele, report, None) }
     (xml \ "pages" \ "page").foreach { ele =>
       report.addPage(
-        new Page((ele \ "@name").text, (ele \ "@iterator").text))
+        new Page((ele \ "@name").text, (ele \ "@iterable").text == "true"))
     }
     report.template = (xml \ "pages" \ "@template").text
     report.extension = (xml \ "pages" \ "@extension").text
