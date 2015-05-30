@@ -107,17 +107,8 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val catalo
 
     val sql = table.querySql + orderBy.toString
     val grammar = schema.dialect.limitGrammar
-    val limitSql = grammar.limit(sql, limit.pageIndex > 1)
-
-    val offset = (limit.pageIndex - 1) * limit.pageSize
-    val limitOrMax = if (grammar.useMax) limit.pageIndex * limit.pageSize else limit.pageSize
-
-    if (limit.pageIndex == 1) {
-      return executor.query(limitSql, limitOrMax)
-    } else {
-      if (grammar.bindInReverseOrder) return executor.query(limitSql, limitOrMax, offset)
-      else executor.query(limitSql, offset, limitOrMax)
-    }
+    val rs = grammar.limit(sql, (limit.pageIndex - 1) * limit.pageSize, limit.pageSize)
+    executor.query(rs._1, rs._2.toArray: _*)
   }
 
   def get(table: Table): Seq[Seq[_]] = executor.query(table.querySql)

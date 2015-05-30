@@ -63,7 +63,7 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
           if (null != p) convert(p)
         } catch {
           case e: IndexOutOfBoundsException =>
-          case e: Exception => logger.error("Error in convertion ", e)
+          case e: Exception                 => logger.error("Error in convertion ", e)
         }
       }
     }
@@ -93,8 +93,8 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
           var curr = 0
           var pageIndex = 0
           while (curr < count) {
-            val limit = new PageLimit(pageIndex + 1, 5000)
-            val data = if (source.supportLimit) source.get(srcTable, limit) else source.get(srcTable)
+            val limit = new PageLimit(pageIndex + 1, 10000)
+            val data = if (source.supportLimit && srcTable.primaryKey != null) source.get(srcTable, limit) else source.get(srcTable)
             var breakable = false
             if (data.isEmpty) {
               logger.error(s"Failure in fetching ${srcTable.name} data ${limit.pageIndex}(${limit.pageSize})")
