@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<conversion maxthreads="5">
+  <source>
+      <dialect>org.beangle.data.jdbc.dialect.SQLServer2008Dialect</dialect>
+      <url>jdbc:jtds:sqlserver://192.168.1.9:1433/studb</url>
+      <driver>net.sourceforge.jtds.jdbc.Driver</driver>
+      <user>sa</user>
+      <password>111111</password>
+      <schema>dbo</schema>
+  </source>
+  <tables/>
+  <target>
+    <db>
+      <dialect>org.beangle.data.jdbc.dialect.PostgreSQLDialect</dialect>
+      <url>jdbc:postgresql://localhost:5432/postgres</url>
+      <driver>org.postgresql.Driver</driver>
+      <user>postgres</user>
+      <password>1</password>
+      <schema>demo</schema>
+    </db>
+  </target>
+</conversion>
