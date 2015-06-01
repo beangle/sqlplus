@@ -3,14 +3,14 @@
   <parent>
     <groupId>org.beangle</groupId>
     <artifactId>beangle-scala</artifactId>
-    <version>22.1</version>
+    <version>22.2</version>
   </parent>
   <groupId>org.beangle.db</groupId>
   <artifactId>beangle-db-parent</artifactId>
   <packaging>pom</packaging>
   <version>0.0.1-SNAPSHOT</version>
   <name>Beangle DB Parent</name>
-  
+
   <modules>
     <module>report</module>
     <module>conversion</module>
@@ -22,7 +22,7 @@
   </description>
 
   <url>https://github.com/beangle/db</url>
-  
+
   <issueManagement>
     <system>github</system>
     <url>https://github.com/beangle/db/issues</url>
@@ -36,8 +36,8 @@
   </scm>
 
   <properties>
-    <commons.version>4.2.4</commons.version>
-    <data.version>4.2.2-SNAPSHOT</data.version>
+    <commons.version>4.2.5</commons.version>
+    <data.version>4.2.2</data.version>
   </properties>
 
   <dependencyManagement>
@@ -54,7 +54,7 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
-  
+
   <dependencies>
     <dependency>
       <groupId>org.slf4j</groupId>
