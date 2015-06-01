@@ -8,7 +8,7 @@
   <groupId>org.beangle.db</groupId>
   <artifactId>beangle-db-parent</artifactId>
   <packaging>pom</packaging>
-  <version>0.0.1</version>
+  <version>0.0.2-SNAPSHOT</version>
   <name>Beangle DB Parent</name>
 
   <modules>
