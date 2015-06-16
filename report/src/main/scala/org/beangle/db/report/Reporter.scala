@@ -34,12 +34,38 @@ import freemarker.template.Configuration
 import javax.sql.DataSource
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import org.beangle.commons.collection.Collections
+
+object MultiReport extends Logging {
+  def main(args: Array[String]): Unit = {
+    if (args.length < 1) {
+      logger.info("Usage: Reporter /path/to/your/report/dir")
+      return
+    }
+    findReportXML(new File(args(0))) foreach { xml =>
+      Reporter.main(Array(xml))
+    }
+  }
+
+  private def findReportXML(dir: File): List[String] = {
+    val xmls = Collections.newBuffer[String]
+    dir.listFiles() foreach { f =>
+      if (f.isDirectory()) xmls ++= findReportXML(f)
+      else {
+        if (f.getName.endsWith(".xml")) {
+          xmls += f.getAbsolutePath
+        }
+      }
+    }
+    xmls.toList
+  }
+}
 
 object Reporter extends Logging {
 
   val DotReady = checkDot()
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     if (!checkJdkTools()) {
       logger.info("Report need tools.jar which contains com.sun.tools.javadoc utility.")
       return ;
@@ -133,7 +159,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
   }
 
   def genWiki() {
-    val data = new collection.mutable.HashMap[String, Any]()
+    val data = new collection.mutable.HashMap[String, Any]
     data += ("dialect" -> report.dbconf.dialect)
     data += ("tablesMap" -> database.tables)
     data += ("report" -> report)
