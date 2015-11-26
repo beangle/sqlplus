@@ -3,10 +3,10 @@
   <parent>
     <groupId>org.beangle</groupId>
     <artifactId>beangle-scala</artifactId>
-    <version>22.2</version>
+    <version>22.4</version>
   </parent>
   <groupId>org.beangle.db</groupId>
-  <artifactId>beangle-db-parent</artifactId>
+  <artifactId>beangle-db-parent_2.11</artifactId>
   <packaging>pom</packaging>
   <version>0.0.2-SNAPSHOT</version>
   <name>Beangle DB Parent</name>
@@ -36,21 +36,27 @@
   </scm>
 
   <properties>
-    <commons.version>4.2.5</commons.version>
-    <data.version>4.2.2</data.version>
+    <commons.version>4.4.7</commons.version>
+    <data.version>4.3.3</data.version>
+    <HikariCP.version>2.4.1</HikariCP.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
       <dependency>
         <groupId>org.beangle.commons</groupId>
-        <artifactId>beangle-commons-core</artifactId>
+        <artifactId>beangle-commons-core_2.11</artifactId>
         <version>${commons.version}</version>
       </dependency>
       <dependency>
         <groupId>org.beangle.data</groupId>
-        <artifactId>beangle-data-jdbc</artifactId>
+        <artifactId>beangle-data-jdbc_2.11</artifactId>
         <version>${data.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.zaxxer</groupId>
+        <artifactId>HikariCP</artifactId>
+        <version>${HikariCP.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -70,7 +76,7 @@
     </dependency>
     <dependency>
       <groupId>org.beangle.data</groupId>
-      <artifactId>beangle-data-jdbc</artifactId>
+      <artifactId>beangle-data-jdbc_2.11</artifactId>
     </dependency>
  </dependencies>
 </project>

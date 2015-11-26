@@ -22,7 +22,7 @@ import scala.Array.canBuildFrom
 
 import org.beangle.data.jdbc.meta.Table
 import org.beangle.commons.lang.Strings
-import org.beangle.commons.text.regex.AntPathPattern
+import org.beangle.commons.regex.AntPathPattern
 
 case class Page(val name: String, val iterable: Boolean)
 
@@ -35,6 +35,9 @@ trait TableContainer {
     patterns.exists(p => p.matches(lowertable))
   }
 
+  def contains(tableName: String): Boolean = {
+    tables.exists(t => t.name.toCase(true) == tableName)
+  }
   def addTable(table: Table): Unit = {
     tables += table
   }
@@ -77,7 +80,7 @@ class Module(val name: String, val title: String, tableseq: String) extends Tabl
   override def matches(tableName: String): Boolean = {
     parent match {
       case Some(pm) => pm.matches(tableName) && super.matches(tableName)
-      case None => super.matches(tableName)
+      case None     => super.matches(tableName)
     }
   }
 

@@ -27,6 +27,7 @@ import org.beangle.db.conversion.converter.SequenceConverter
 import org.beangle.db.conversion.converter.ConstraintConverter
 import org.beangle.db.conversion.converter.IndexConverter
 import org.beangle.db.conversion.converter.TableConverter
+import org.beangle.data.jdbc.ds.DataSourceUtils
 
 object Reactor extends Logging {
 
@@ -80,6 +81,10 @@ class Reactor(val config: Config) {
 
     for (converter <- converters)
       converter.start()
+
+    //cleanup
+    DataSourceUtils.close(config.source.dataSource)
+    DataSourceUtils.close(config.target.dataSource)
   }
 
   private def filterTables(source: Source, srcWrapper: SchemaWrapper, targetWrapper: SchemaWrapper): List[Tuple2[Table, Table]] = {

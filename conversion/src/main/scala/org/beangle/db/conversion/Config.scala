@@ -20,7 +20,7 @@ package org.beangle.db.conversion
 
 import org.beangle.commons.lang.{ Numbers, Strings }
 import org.beangle.data.jdbc.dialect.{ Dialect, Name }
-import org.beangle.data.jdbc.util.{ DatasourceConfig, PoolingDataSourceFactory }
+import org.beangle.data.jdbc.ds.{ DatasourceConfig, DataSourceUtils }
 import javax.sql.DataSource
 
 object Config {
@@ -38,8 +38,7 @@ object Config {
   private def source(xml: scala.xml.Elem): Source = {
     val dbconf = DatasourceConfig.build((xml \\ "source").head)
 
-    val ds = new PoolingDataSourceFactory(dbconf.driver,
-      dbconf.url, dbconf.user, dbconf.password, dbconf.props).getObject
+    val ds = DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
     val source = new Source(dbconf.dialect, ds)
     source.schema = dbconf.schema
     source.catalog = dbconf.catalog
@@ -63,9 +62,7 @@ object Config {
   private def target(xml: scala.xml.Elem): Target = {
     val dbconf = DatasourceConfig.build((xml \\ "target" \\ "db").head)
 
-    val ds = new PoolingDataSourceFactory(dbconf.driver,
-      dbconf.url, dbconf.user, dbconf.password, dbconf.props).getObject
-    val target = new Target(dbconf.dialect, ds)
+    val target = new Target(dbconf.dialect, DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props))
     target.schema = dbconf.schema
     target.catalog = dbconf.catalog
     target

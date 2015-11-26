@@ -21,7 +21,7 @@ package org.beangle.db.report.model
 import org.beangle.commons.bean.Initializing
 import org.beangle.commons.lang.Strings
 import org.beangle.data.jdbc.meta.Table
-import org.beangle.data.jdbc.util.DatasourceConfig
+import org.beangle.data.jdbc.ds.DatasourceConfig
 
 object Report {
 

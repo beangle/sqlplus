@@ -25,7 +25,7 @@ import org.beangle.commons.lang.ClassLoaders
 import org.beangle.commons.lang.Strings.{ isEmpty, substringAfterLast, substringBefore, substringBeforeLast }
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.meta.{ Schema, Table }
-import org.beangle.data.jdbc.util.PoolingDataSourceFactory
+import org.beangle.data.jdbc.ds.DataSourceUtils
 import org.beangle.db.report.model.{ Module, Report }
 import org.beangle.template.freemarker.BeangleObjectWrapper
 import org.umlgraph.doclet.UmlGraph
@@ -42,9 +42,7 @@ object MultiReport extends Logging {
       logger.info("Usage: Reporter /path/to/your/report/dir")
       return
     }
-    findReportXML(new File(args(0))) foreach { xml =>
-      Reporter.main(Array(xml))
-    }
+    findReportXML(new File(args(0))) foreach (xml => Reporter.main(Array(xml)))
   }
 
   private def findReportXML(dir: File): List[String] = {
@@ -52,9 +50,7 @@ object MultiReport extends Logging {
     dir.listFiles() foreach { f =>
       if (f.isDirectory()) xmls ++= findReportXML(f)
       else {
-        if (f.getName.endsWith(".xml")) {
-          xmls += f.getAbsolutePath
-        }
+        if (f.getName.endsWith(".xml")) xmls += f.getAbsolutePath
       }
     }
     xmls.toList
@@ -80,8 +76,7 @@ object Reporter extends Logging {
     dir = substringBeforeLast(dir, /) + / + substringBefore(substringAfterLast(dir, /), ".xml") + /
     logger.info(s"All wiki and images will be generated in $dir")
     val xml = scala.xml.XML.load(new FileInputStream(reportxml))
-    val report = Report(xml)
-    val reporter = new Reporter(report, dir)
+    val reporter = new Reporter(Report(xml), dir)
     reporter.filterTables()
 
     val debug = if (args.length > 1) args(1) == "-debug" else false
@@ -102,6 +97,7 @@ object Reporter extends Logging {
     try {
       reporter.genWiki()
       reporter.genImages()
+      reporter.close()
       logger.info("report generate complete.")
     } catch {
       case e: Exception => e.printStackTrace
@@ -110,7 +106,7 @@ object Reporter extends Logging {
 
   private def checkJdkTools(): Boolean = {
     try {
-      ClassLoaders.loadClass("com.sun.tools.javadoc.Main")
+      ClassLoaders.load("com.sun.tools.javadoc.Main")
     } catch {
       case e: Exception => false
     }
@@ -132,8 +128,7 @@ object Reporter extends Logging {
 
 class Reporter(val report: Report, val dir: String) extends Logging {
   val dbconf = report.dbconf
-  val ds: DataSource = new PoolingDataSourceFactory(dbconf.driver,
-    dbconf.url, dbconf.user, dbconf.password, dbconf.props).getObject
+  val ds = DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
   val database = new Schema(report.dbconf.dialect, null, dbconf.schema)
 
   val meta = ds.getConnection().getMetaData()
@@ -240,5 +235,9 @@ see http://www.graphviz.org/doc/info/lang.html and http://www.linuxdevcenter.com
       Runtime.getRuntime().exec("dot -Tpng -o" + pngPath + " " + dotPath);
       dotfile.deleteOnExit()
     }
+  }
+
+  def close(): Unit = {
+    DataSourceUtils.close(ds)
   }
 }

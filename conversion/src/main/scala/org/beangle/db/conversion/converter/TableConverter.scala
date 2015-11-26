@@ -86,10 +86,15 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
       try {
         if (!createOrReplaceTable(targetTable)) return
         var count = source.count(srcTable)
+
         if (count == 0) {
           target.save(targetTable, List.empty)
           logger.info(s"Insert $targetTable(0)")
         } else {
+          if (count >= 600000 && !(source.supportLimit && srcTable.primaryKey != null)) {
+            println("Cannot paginate " + targetTable.name + " convertion ignored!")
+            return
+          }
           var curr = 0
           var pageIndex = 0
           while (curr < count) {
@@ -104,12 +109,13 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
               val successed = target.save(targetTable, data)
               curr += data.size
               pageIndex += 1
+              val name = Thread.currentThread().getName
               if (successed == count) {
-                logger.info(s"Insert $targetTable($successed)")
+                logger.info(s"$name Insert $targetTable($successed)")
               } else if (successed == data.size) {
-                logger.info(s"Insert $targetTable($curr/$count)")
+                logger.info(s"$name Insert $targetTable($curr/$count)")
               } else {
-                logger.warn(s"Insert $targetTable($successed/${data.size})")
+                logger.warn(s"$name Insert $targetTable($successed/${data.size})")
               }
             }
           }
