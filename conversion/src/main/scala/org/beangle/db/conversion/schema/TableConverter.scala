@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion.converter
+package org.beangle.db.conversion.schema
 
 import java.util.concurrent.LinkedBlockingQueue
 

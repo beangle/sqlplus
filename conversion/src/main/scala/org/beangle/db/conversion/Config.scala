@@ -20,7 +20,9 @@ package org.beangle.db.conversion
 
 import org.beangle.commons.lang.{ Numbers, Strings }
 import org.beangle.data.jdbc.dialect.{ Dialect, Name }
-import org.beangle.data.jdbc.ds.{ DatasourceConfig, DataSourceUtils }
+import org.beangle.data.jdbc.ds.{ DataSourceUtils, DatasourceConfig }
+import org.beangle.db.conversion.schema.SchemaWrapper
+
 import javax.sql.DataSource
 
 object Config {

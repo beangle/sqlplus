@@ -19,15 +19,14 @@
 package org.beangle.db.conversion
 
 import java.io.FileInputStream
+
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.meta.Constraint
-import org.beangle.data.jdbc.meta.Table
-import Config.Source
-import org.beangle.db.conversion.converter.SequenceConverter
-import org.beangle.db.conversion.converter.ConstraintConverter
-import org.beangle.db.conversion.converter.IndexConverter
-import org.beangle.db.conversion.converter.TableConverter
 import org.beangle.data.jdbc.ds.DataSourceUtils
+import org.beangle.data.jdbc.meta.{ Constraint, Table }
+import org.beangle.db.conversion.schema.{ ConstraintConverter, IndexConverter, SchemaWrapper, SequenceConverter, TableConverter }
+
+import Config.Source
 
 object Reactor extends Logging {
 
@@ -89,15 +88,16 @@ class Reactor(val config: Config) {
 
   private def filterTables(source: Source, srcWrapper: SchemaWrapper, targetWrapper: SchemaWrapper): List[Tuple2[Table, Table]] = {
     val tables = sourceWrapper.schema.filterTables(config.source.table.includes, config.source.table.excludes)
-    val tablePairs = new collection.mutable.ListBuffer[Tuple2[Table, Table]]
+    val tablePairs = Collections.newMap[String, Tuple2[Table, Table]]
+
     for (srcTable <- tables) {
       var targetTable = srcTable.clone()
       targetTable.updateSchema(targetWrapper.schema.name)
       targetTable.toCase(source.table.lowercase)
       targetTable.attach(targetWrapper.dialect)
-      tablePairs += (srcTable -> targetTable)
+      tablePairs.put(targetTable.name.toString, (srcTable -> targetTable))
     }
-    tablePairs.toList
+    tablePairs.values.toList
   }
 
   private def filterConstraints(tables: List[Tuple2[Table, Table]]): List[Constraint] = {

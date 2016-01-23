@@ -23,15 +23,15 @@ import org.beangle.commons.collection.page.PageLimit
 
 trait DataWrapper {
 
-  def get(table: Table): Seq[Seq[_]]
+  def get(table: Table): Seq[Array[Any]]
 
-  def get(table: Table, limit: PageLimit): Seq[Seq[_]]
+  def get(table: Table, limit: PageLimit): Seq[Array[Any]]
 
   def drop(table: Table): Boolean
 
   def create(table: Table): Boolean
 
-  def save(table: Table, datas: Seq[Seq[_]]): Int
+  def save(table: Table, datas: Seq[Array[Any]]): Int
 
   def close()
 

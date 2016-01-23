@@ -16,13 +16,12 @@
  * You should have received a copy of the GNU General Public License
  * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion.converter
+package org.beangle.db.conversion.schema
 
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.db.conversion.Converter
 import org.beangle.data.jdbc.meta.Table
-import org.beangle.db.conversion.SchemaWrapper
 
 class IndexConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
 
