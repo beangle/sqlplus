@@ -11,7 +11,7 @@ class UMLOptions {}
  * @note ${table.comment!}
 [#list table.foreignKeys as fk]
  * @depend - - - ${fk.referencedTable.name.value?lower_case}
- [#if !image.matches(fk.referencedTable.name)]
+ [#if !image.contains(fk.referencedTable.name)]
    [#if !(referTables?seq_contains(fk.referencedTable))]
    [#assign referTables=referTables + [fk.referencedTable]]
    [/#if]

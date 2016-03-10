@@ -1,32 +1,32 @@
 /*
  * Beangle, Agile Development Scaffold and Toolkit
  *
- * Copyright (c) 2005-2015, Beangle Software.
+ * Copyright (c) 2005-2016, Beangle Software.
  *
  * Beangle is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Beangle is distributed in the hope that it will be useful.
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.beangle.db.conversion
 
 import java.io.FileInputStream
+
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.meta.Constraint
-import org.beangle.data.jdbc.meta.Table
+import org.beangle.data.jdbc.ds.DataSourceUtils
+import org.beangle.data.jdbc.meta.{ Constraint, Table }
+import org.beangle.db.conversion.schema.{ ConstraintConverter, IndexConverter, SchemaWrapper, SequenceConverter, TableConverter }
+
 import Config.Source
-import org.beangle.db.conversion.converter.SequenceConverter
-import org.beangle.db.conversion.converter.ConstraintConverter
-import org.beangle.db.conversion.converter.IndexConverter
-import org.beangle.db.conversion.converter.TableConverter
 
 object Reactor extends Logging {
 
@@ -80,19 +80,24 @@ class Reactor(val config: Config) {
 
     for (converter <- converters)
       converter.start()
+
+    //cleanup
+    DataSourceUtils.close(config.source.dataSource)
+    DataSourceUtils.close(config.target.dataSource)
   }
 
   private def filterTables(source: Source, srcWrapper: SchemaWrapper, targetWrapper: SchemaWrapper): List[Tuple2[Table, Table]] = {
     val tables = sourceWrapper.schema.filterTables(config.source.table.includes, config.source.table.excludes)
-    val tablePairs = new collection.mutable.ListBuffer[Tuple2[Table, Table]]
+    val tablePairs = Collections.newMap[String, Tuple2[Table, Table]]
+
     for (srcTable <- tables) {
       var targetTable = srcTable.clone()
       targetTable.updateSchema(targetWrapper.schema.name)
       targetTable.toCase(source.table.lowercase)
       targetTable.attach(targetWrapper.dialect)
-      tablePairs += (srcTable -> targetTable)
+      tablePairs.put(targetTable.name.toString, (srcTable -> targetTable))
     }
-    tablePairs.toList
+    tablePairs.values.toList
   }
 
   private def filterConstraints(tables: List[Tuple2[Table, Table]]): List[Constraint] = {

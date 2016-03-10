@@ -1,19 +1,19 @@
 /*
  * Beangle, Agile Development Scaffold and Toolkit
  *
- * Copyright (c) 2005-2015, Beangle Software.
+ * Copyright (c) 2005-2016, Beangle Software.
  *
  * Beangle is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Beangle is distributed in the hope that it will be useful.
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.beangle.db.report.model
@@ -22,7 +22,7 @@ import scala.Array.canBuildFrom
 
 import org.beangle.data.jdbc.meta.Table
 import org.beangle.commons.lang.Strings
-import org.beangle.commons.text.regex.AntPathPattern
+import org.beangle.commons.regex.AntPathPattern
 
 case class Page(val name: String, val iterable: Boolean)
 
@@ -35,6 +35,9 @@ trait TableContainer {
     patterns.exists(p => p.matches(lowertable))
   }
 
+  def contains(tableName: String): Boolean = {
+    tables.exists(t => t.name.toCase(true) == tableName)
+  }
   def addTable(table: Table): Unit = {
     tables += table
   }
@@ -77,7 +80,7 @@ class Module(val name: String, val title: String, tableseq: String) extends Tabl
   override def matches(tableName: String): Boolean = {
     parent match {
       case Some(pm) => pm.matches(tableName) && super.matches(tableName)
-      case None => super.matches(tableName)
+      case None     => super.matches(tableName)
     }
   }
 

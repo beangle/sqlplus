@@ -1,30 +1,30 @@
 /*
  * Beangle, Agile Development Scaffold and Toolkit
  *
- * Copyright (c) 2005-2015, Beangle Software.
+ * Copyright (c) 2005-2016, Beangle Software.
  *
  * Beangle is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Beangle is distributed in the hope that it will be useful.
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion
+package org.beangle.db.conversion.schema
 
 import org.beangle.commons.collection.page.PageLimit
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.dialect.{ Dialect, Name }
 import org.beangle.data.jdbc.meta.{ Schema, Sequence, Table }
 import org.beangle.data.jdbc.query.JdbcExecutor
-
 import javax.sql.DataSource
+import org.beangle.db.conversion.DataWrapper
 
 class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val catalog: Name, val name: Name)
   extends DataWrapper with Logging {
@@ -95,9 +95,11 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val catalo
     return true
   }
 
-  def count(table: Table): Int = executor.queryForInt("select count(*) from (" + table.querySql + ") tb" + System.currentTimeMillis())
+  def count(table: Table): Int = {
+    executor.queryForInt("select count(*) from (" + table.querySql + ") tb" + System.currentTimeMillis())
+  }
 
-  def get(table: Table, limit: PageLimit): Seq[Seq[_]] = {
+  def get(table: Table, limit: PageLimit): Seq[Array[Any]] = {
     val orderBy = new StringBuffer
 
     if (null != table.primaryKey && table.primaryKey.columns.length > 0) {
@@ -111,9 +113,9 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val catalo
     executor.query(rs._1, rs._2.toArray: _*)
   }
 
-  def get(table: Table): Seq[Seq[_]] = executor.query(table.querySql)
+  def get(table: Table): Seq[Array[Any]] = executor.query(table.querySql)
 
-  def save(table: Table, datas: Seq[Seq[_]]): Int = {
+  def save(table: Table, datas: Seq[Array[Any]]): Int = {
     val types = for (column <- table.columns) yield column.typeCode
     val insertSql = table.insertSql
     executor.batch(insertSql, datas, types).length

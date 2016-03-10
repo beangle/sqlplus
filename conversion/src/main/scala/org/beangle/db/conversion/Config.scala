@@ -1,26 +1,28 @@
 /*
  * Beangle, Agile Development Scaffold and Toolkit
  *
- * Copyright (c) 2005-2015, Beangle Software.
+ * Copyright (c) 2005-2016, Beangle Software.
  *
  * Beangle is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Beangle is distributed in the hope that it will be useful.
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.beangle.db.conversion
 
 import org.beangle.commons.lang.{ Numbers, Strings }
 import org.beangle.data.jdbc.dialect.{ Dialect, Name }
-import org.beangle.data.jdbc.util.{ DatasourceConfig, PoolingDataSourceFactory }
+import org.beangle.data.jdbc.ds.{ DataSourceUtils, DatasourceConfig }
+import org.beangle.db.conversion.schema.SchemaWrapper
+
 import javax.sql.DataSource
 
 object Config {
@@ -38,8 +40,7 @@ object Config {
   private def source(xml: scala.xml.Elem): Source = {
     val dbconf = DatasourceConfig.build((xml \\ "source").head)
 
-    val ds = new PoolingDataSourceFactory(dbconf.driver,
-      dbconf.url, dbconf.user, dbconf.password, dbconf.props).getObject
+    val ds = DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
     val source = new Source(dbconf.dialect, ds)
     source.schema = dbconf.schema
     source.catalog = dbconf.catalog
@@ -63,9 +64,7 @@ object Config {
   private def target(xml: scala.xml.Elem): Target = {
     val dbconf = DatasourceConfig.build((xml \\ "target" \\ "db").head)
 
-    val ds = new PoolingDataSourceFactory(dbconf.driver,
-      dbconf.url, dbconf.user, dbconf.password, dbconf.props).getObject
-    val target = new Target(dbconf.dialect, ds)
+    val target = new Target(dbconf.dialect, DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props))
     target.schema = dbconf.schema
     target.catalog = dbconf.catalog
     target

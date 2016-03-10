@@ -1,22 +1,22 @@
 /*
  * Beangle, Agile Development Scaffold and Toolkit
  *
- * Copyright (c) 2005-2015, Beangle Software.
+ * Copyright (c) 2005-2016, Beangle Software.
  *
  * Beangle is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Beangle is distributed in the hope that it will be useful.
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion.converter
+package org.beangle.db.conversion.schema
 
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -86,10 +86,15 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
       try {
         if (!createOrReplaceTable(targetTable)) return
         var count = source.count(srcTable)
+
         if (count == 0) {
           target.save(targetTable, List.empty)
           logger.info(s"Insert $targetTable(0)")
         } else {
+          if (count >= 600000 && !(source.supportLimit && srcTable.primaryKey != null)) {
+            println("Cannot paginate " + targetTable.name + " convertion ignored!")
+            return
+          }
           var curr = 0
           var pageIndex = 0
           while (curr < count) {
@@ -104,12 +109,13 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
               val successed = target.save(targetTable, data)
               curr += data.size
               pageIndex += 1
+              val name = Thread.currentThread().getName
               if (successed == count) {
-                logger.info(s"Insert $targetTable($successed)")
+                logger.info(s"$name Insert $targetTable($successed)")
               } else if (successed == data.size) {
-                logger.info(s"Insert $targetTable($curr/$count)")
+                logger.info(s"$name Insert $targetTable($curr/$count)")
               } else {
-                logger.warn(s"Insert $targetTable($successed/${data.size})")
+                logger.warn(s"$name Insert $targetTable($successed/${data.size})")
               }
             }
           }
