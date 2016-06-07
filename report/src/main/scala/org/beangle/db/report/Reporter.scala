@@ -135,7 +135,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
   database.loadTables(meta, true)
   database.loadSequences(meta)
 
-  val cfg = new Configuration()
+  val cfg = new Configuration(Configuration.VERSION_2_3_24)
   cfg.setEncoding(Locale.getDefault, "UTF-8")
   val overrideDir = new File(dir + ".." + / + "template")
   if (overrideDir.exists) {
