@@ -11,7 +11,7 @@
   * 1.2 [序列一览](sequences.html)
 [/#if]
 [#if report.images?size>0]
-  * 1.3 [模块关系图](images.html)
+  * [#if sequences?size>0]1.3[#else]1.2[/#if] [模块关系图](images.html)
 [/#if]
 
 ##### 2. 具体模块明细
