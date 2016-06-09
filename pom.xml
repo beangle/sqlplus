@@ -8,7 +8,7 @@
   <groupId>org.beangle.db</groupId>
   <artifactId>beangle-db-parent_2.12</artifactId>
   <packaging>pom</packaging>
-  <version>0.0.3-SNAPSHOT</version>
+  <version>0.0.3</version>
   <name>Beangle DB Parent</name>
 
   <modules>
@@ -36,7 +36,7 @@
   </scm>
 
   <properties>
-    <commons.version>4.5.0</commons.version>
+    <commons.version>4.5.1</commons.version>
     <data.version>4.4.0</data.version>
     <beangle.template.version>0.0.11</beangle.template.version>
     <HikariCP.version>2.4.6</HikariCP.version>
