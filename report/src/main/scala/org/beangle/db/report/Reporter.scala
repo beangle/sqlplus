@@ -143,7 +143,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     cfg.setTemplateLoader(new MultiTemplateLoader(Array(new FileTemplateLoader(overrideDir), new ClassTemplateLoader(getClass, "/template"))))
   } else
     cfg.setTemplateLoader(new ClassTemplateLoader(getClass, "/template"))
-  cfg.setObjectWrapper(new BeangleObjectWrapper(true))
+  cfg.setObjectWrapper(new BeangleObjectWrapper)
 
   def filterTables() {
     val lastTables = new collection.mutable.HashSet[Table]
