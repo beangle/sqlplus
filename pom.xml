@@ -3,12 +3,12 @@
   <parent>
     <groupId>org.beangle</groupId>
     <artifactId>beangle-scala</artifactId>
-    <version>23.3</version>
+    <version>23.4</version>
   </parent>
   <groupId>org.beangle.db</groupId>
   <artifactId>beangle-db-parent_2.12</artifactId>
   <packaging>pom</packaging>
-  <version>0.0.3</version>
+  <version>0.0.4</version>
   <name>Beangle DB Parent</name>
 
   <modules>
@@ -36,10 +36,10 @@
   </scm>
 
   <properties>
-    <commons.version>4.5.1</commons.version>
-    <data.version>4.4.0</data.version>
-    <beangle.template.version>0.0.11</beangle.template.version>
-    <HikariCP.version>2.4.6</HikariCP.version>
+    <commons.version>4.5.2</commons.version>
+    <data.version>4.4.1</data.version>
+    <beangle.template.version>0.0.12</beangle.template.version>
+    <HikariCP.version>2.4.7</HikariCP.version>
     <umlgraph.version>5.6.6</umlgraph.version>
   </properties>
 

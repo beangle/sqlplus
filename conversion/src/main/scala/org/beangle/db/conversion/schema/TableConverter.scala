@@ -48,7 +48,7 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
     val watch = new Stopwatch(true)
     val tableCount = tables.length
     val buffer = new LinkedBlockingQueue[Tuple2[Table, Table]]
-    buffer.addAll(collection.JavaConversions.asJavaCollection(tables.sortWith(_._1.name > _._1.name)))
+    buffer.addAll(collection.JavaConverters.asJavaCollection(tables.sortWith(_._1.name > _._1.name)))
     logger.info(s"Start $tableCount tables data replication in $threads threads...")
     ThreadTasks.start(new ConvertTask(source, target, buffer), threads)
     logger.info(s"End $tableCount tables data replication,using $watch")

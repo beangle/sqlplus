@@ -62,7 +62,7 @@ object Config {
   }
 
   private def target(xml: scala.xml.Elem): Target = {
-    val dbconf = DatasourceConfig.build((xml \\ "target" \\ "db").head)
+    val dbconf = DatasourceConfig.build((xml \\ "target").head)
 
     val target = new Target(dbconf.dialect, DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props))
     target.schema = dbconf.schema
