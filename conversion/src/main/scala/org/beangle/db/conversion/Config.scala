@@ -1,26 +1,27 @@
 /*
- * Beangle, Agile Development Scaffold and Toolkit
+ * Beangle, Agile Development Scaffold and Toolkits.
  *
- * Copyright (c) 2005-2016, Beangle Software.
+ * Copyright © 2005, The Beangle Software.
  *
- * Beangle is free software: you can redistribute it and/or modify
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Beangle is distributed in the hope that it will be useful.
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.beangle.db.conversion
 
 import org.beangle.commons.lang.{ Numbers, Strings }
-import org.beangle.data.jdbc.dialect.{ Dialect, Name }
+import org.beangle.data.jdbc.dialect.Dialect
 import org.beangle.data.jdbc.ds.{ DataSourceUtils, DatasourceConfig }
+import org.beangle.data.jdbc.meta.{ Database, Identifier, Schema }
 import org.beangle.db.conversion.schema.SchemaWrapper
 
 import javax.sql.DataSource
@@ -82,31 +83,34 @@ object Config {
     var includes: Seq[String] = _
     var excludes: Seq[String] = _
     var lowercase: Boolean = false
-
   }
 
-  final class Source(val dialect: Dialect, val dataSource: DataSource) {
-    var schema: Name = _
-    var catalog: Name = _
+  class SchemaHolder(val dialect: Dialect, val dataSource: DataSource) {
+    val database = new Database(dialect.engine)
+    var schema: Identifier = _
+    var catalog: Identifier = _
+
+    def getSchema: Schema = {
+      if (null == schema) schema = Identifier(dialect.defaultSchema)
+      val rs = database.getOrCreateSchema(schema)
+      rs.catalog = Option(catalog)
+      rs
+    }
+  }
+
+  final class Source(dialect: Dialect, dataSource: DataSource) extends SchemaHolder(dialect, dataSource) {
     var table: TableConfig = _
     var sequence: SeqConfig = _
 
     def buildWrapper(): SchemaWrapper = {
-      if (null == schema && null != dialect.defaultSchema) schema = Name(dialect.defaultSchema)
-      new SchemaWrapper(dataSource, dialect, catalog, schema)
+      new SchemaWrapper(dataSource, dialect, getSchema)
     }
-
   }
 
-  final class Target(val dialect: Dialect, val dataSource: DataSource) {
-    var schema: Name = _
-    var catalog: Name = _
-
+  final class Target(dialect: Dialect, dataSource: DataSource) extends SchemaHolder(dialect, dataSource) {
     def buildWrapper(): SchemaWrapper = {
-      if (null == schema) schema = Name(dialect.defaultSchema)
-      new SchemaWrapper(dataSource, dialect, catalog, schema)
+      new SchemaWrapper(dataSource, dialect, getSchema)
     }
-
   }
 }
 

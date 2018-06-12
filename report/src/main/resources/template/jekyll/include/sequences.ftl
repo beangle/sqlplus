@@ -14,7 +14,7 @@
   [#assign sortedSeqs = sequences?sort_by("name")/]
   [#list 1..seqcnt as i]
   <tr>
-  	[#assign seq= sortedSeqs[i-1] /]
+    [#assign seq= sortedSeqs[i-1] /]
     <td>${i}</td>
     <td>${seq.name.value?lower_case}<br>${seq.comment!}</td>
     [#if sequences[i-1+seqcnt]??]

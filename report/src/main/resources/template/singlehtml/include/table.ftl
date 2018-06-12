@@ -65,7 +65,7 @@
   [/#list]
 </table>
 [/#if]
- 
+
 [#if table.indexes?size>0]
 <ul>
   <li>表格的索引</li>

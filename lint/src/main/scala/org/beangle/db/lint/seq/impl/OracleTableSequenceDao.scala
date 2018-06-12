@@ -1,20 +1,20 @@
 /*
- * Beangle, Agile Development Scaffold and Toolkit
+ * Beangle, Agile Development Scaffold and Toolkits.
  *
- * Copyright (c) 2005-2016, Beangle Software.
+ * Copyright © 2005, The Beangle Software.
  *
- * Beangle is free software: you can redistribute it and/or modify
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Beangle is distributed in the hope that it will be useful.
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.beangle.db.lint.seq.impl
 
@@ -43,16 +43,16 @@ class OracleTableSequenceDao extends TableSequenceDao with Logging {
     val list = getAllNames()
     for (seqName <- list) {
       val tempSeqSql = "select last_number from user_sequences seqs where seqs.sequence_name='" + seqName + "'"
-      val seqLast_number = jdbcExecutor.queryForLong(tempSeqSql)
+      val seqLast_number = jdbcExecutor.queryForLong(tempSeqSql).get
       val tableName = relation.getTableName(seqName)
       val exists = jdbcExecutor.queryForInt("select count(*) from user_tables tbl where tbl.table_name='"
-        + tableName + "'") > 0
+        + tableName + "'").get > 0
       if (exists) {
-        val dataCount = jdbcExecutor.queryForLong("select count(*) from " + tableName)
+        val dataCount = jdbcExecutor.queryForLong("select count(*) from " + tableName).get
         if (dataCount > 0) {
           var tableLMaxId = -2L
           try {
-            tableLMaxId = jdbcExecutor.queryForLong("select max(id) from  " + tableName)
+            tableLMaxId = jdbcExecutor.queryForLong("select max(id) from  " + tableName).get
           } catch {
             case e: Exception => logger.warn(s"cannot find table $tableName")
           }
@@ -83,7 +83,7 @@ class OracleTableSequenceDao extends TableSequenceDao with Logging {
   def adjust(tableSequence: TableSequence): Long = {
     val sequence = tableSequence.seqName
     val getSql = "select " + sequence + ".nextval from dual"
-    val current = jdbcExecutor.queryForLong(getSql)
+    val current = jdbcExecutor.queryForLong(getSql).get
     val countSql = "select max(" + tableSequence.idColumnName + ") maxid from " + tableSequence.tableName
     val rs = jdbcExecutor.query(countSql)
     var max = 0L
@@ -98,11 +98,11 @@ class OracleTableSequenceDao extends TableSequenceDao with Logging {
         jdbcExecutor.queryForLong(getSql)
         jdbcExecutor.update("ALTER SEQUENCE " + sequence + " INCREMENT BY  1")
       }
-      repaired = jdbcExecutor.queryForLong(getSql)
+      repaired = jdbcExecutor.queryForLong(getSql).get
     } else {
       if (1 == current) return 1L
       jdbcExecutor.update("ALTER SEQUENCE " + sequence + " INCREMENT BY  -1")
-      repaired = jdbcExecutor.queryForLong(getSql)
+      repaired = jdbcExecutor.queryForLong(getSql).get
       jdbcExecutor.update("ALTER SEQUENCE " + sequence + " INCREMENT BY  1")
     }
     return repaired
@@ -124,7 +124,7 @@ class OracleTableSequenceDao extends TableSequenceDao with Logging {
     for (seqName <- list) {
       val tableName = relation.getTableName(seqName)
       val exists = jdbcExecutor.queryForInt("select count(*) from user_tables tbl where tbl.table_name='"
-        + tableName + "'") > 0
+        + tableName + "'").get > 0
       if (!exists)
         err_seqs += seqName
     }

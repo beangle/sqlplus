@@ -1,50 +1,47 @@
 /*
- * Beangle, Agile Development Scaffold and Toolkit
+ * Beangle, Agile Development Scaffold and Toolkits.
  *
- * Copyright (c) 2005-2016, Beangle Software.
+ * Copyright © 2005, The Beangle Software.
  *
- * Beangle is free software: you can redistribute it and/or modify
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Beangle is distributed in the hope that it will be useful.
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.beangle.db.conversion.schema
 
 import org.beangle.commons.collection.page.PageLimit
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.dialect.{ Dialect, Name }
-import org.beangle.data.jdbc.meta.{ Schema, Sequence, Table }
+import org.beangle.data.jdbc.dialect.{ Dialect, SQL }
+import org.beangle.data.jdbc.meta.{ MetadataLoader, Schema, Sequence, Table }
 import org.beangle.data.jdbc.query.JdbcExecutor
-import javax.sql.DataSource
 import org.beangle.db.conversion.DataWrapper
 
-class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val catalog: Name, val name: Name)
+import javax.sql.DataSource
+
+class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema: Schema)
   extends DataWrapper with Logging {
-
-  val schema = new Schema(dialect, catalog, name)
   val executor = new JdbcExecutor(dataSource)
-
-  protected var productName: String = _
+  val loader = new MetadataLoader(dataSource.getConnection.getMetaData, dialect)
 
   def loadMetas(loadTableExtra: Boolean, loadSequence: Boolean): Unit = {
-    val meta = dataSource.getConnection().getMetaData()
-    schema.loadTables(meta, loadTableExtra)
-    if (loadSequence) schema.loadSequences(meta)
+    loader.loadTables(schema, loadTableExtra)
+    if (loadSequence) loader.loadSequences(schema)
   }
 
   def drop(table: Table): Boolean = {
     try {
-      schema.tables.get(table.name.value) foreach { t =>
-        schema.tables.remove(table.name.value)
-        executor.update(schema.dialect.tableGrammar.dropCascade(table.qualifiedName))
+      schema.tables.get(table.name) foreach { t =>
+        schema.tables.remove(table.name)
+        executor.update(dialect.tableGrammar.dropCascade(table.qualifiedName))
       }
     } catch {
       case e: Exception =>
@@ -55,9 +52,9 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val catalo
   }
 
   def create(table: Table): Boolean = {
-    if (schema.tables.get(table.name.value).isEmpty) {
+    if (schema.tables.get(table.name).isEmpty) {
       try {
-        executor.update(table.createSql)
+        executor.update(SQL.createTable(table, dialect))
       } catch {
         case e: Exception =>
           logger.error(s"Cannot create table ${table.name}", e)
@@ -72,7 +69,7 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val catalo
     if (exists) {
       schema.sequences.remove(sequence)
       try {
-        val dropSql = sequence.dropSql
+        val dropSql = SQL.dropSequence(sequence, dialect)
         if (null != dropSql) executor.update(dropSql)
       } catch {
         case e: Exception =>
@@ -85,7 +82,7 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val catalo
 
   def create(sequence: Sequence): Boolean = {
     try {
-      val createSql = sequence.createSql
+      val createSql = SQL.createSequence(sequence, dialect)
       if (null != createSql) executor.update(createSql)
     } catch {
       case e: Exception =>
@@ -96,28 +93,32 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val catalo
   }
 
   def count(table: Table): Int = {
-    executor.queryForInt("select count(*) from (" + table.querySql + ") tb" + System.currentTimeMillis())
+    executor.queryForInt("select count(*) from (" + SQL.query(table) + ") tb"
+      + System.currentTimeMillis).get
   }
 
   def get(table: Table, limit: PageLimit): Seq[Array[Any]] = {
     val orderBy = new StringBuffer
-
-    if (null != table.primaryKey && table.primaryKey.columns.length > 0) {
-      orderBy.append(" order by ")
-      orderBy.append(table.primaryKey.columnNames.foldLeft("")(_ + "," + _).substring(1))
+    table.primaryKey foreach { pk =>
+      if (pk.columns.size > 0) {
+        orderBy.append(" order by ")
+        orderBy.append(pk.columnNames.foldLeft("")(_ + "," + _).substring(1))
+      }
     }
 
-    val sql = table.querySql + orderBy.toString
-    val grammar = schema.dialect.limitGrammar
+    val sql = SQL.query(table) + orderBy.toString
+    val grammar = dialect.limitGrammar
     val rs = grammar.limit(sql, (limit.pageIndex - 1) * limit.pageSize, limit.pageSize)
     executor.query(rs._1, rs._2.toArray: _*)
   }
 
-  def get(table: Table): Seq[Array[Any]] = executor.query(table.querySql)
+  def get(table: Table): Seq[Array[Any]] = {
+    executor.query(SQL.query(table))
+  }
 
   def save(table: Table, datas: Seq[Array[Any]]): Int = {
-    val types = for (column <- table.columns) yield column.typeCode
-    val insertSql = table.insertSql
+    val types = for (column <- table.columns) yield column.sqlType.code
+    val insertSql = SQL.insert(table)
     executor.batch(insertSql, datas, types).length
   }
 

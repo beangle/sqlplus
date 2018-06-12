@@ -2,7 +2,7 @@
 [#macro moduletree prefix module]
 <li> <a href="#module${prefix}">${prefix} ${module.title}</a></li>
 [#list module.children as m]
-	[@moduletree prefix+"."+(m_index+1),m;prefix,module/]
+  [@moduletree prefix+"."+(m_index+1),m;prefix,module/]
 [/#list]
 [/#macro]
 
@@ -14,6 +14,6 @@
 [/#list]
 
 [#list module.children as m]
-	[@moduletables prefix+"."+(m_index+1),m;prefix,module/]
+  [@moduletables prefix+"."+(m_index+1),m;prefix,module/]
 [/#list]
 [/#macro]

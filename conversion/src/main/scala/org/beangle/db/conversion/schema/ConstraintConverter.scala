@@ -1,28 +1,28 @@
 /*
- * Beangle, Agile Development Scaffold and Toolkit
+ * Beangle, Agile Development Scaffold and Toolkits.
  *
- * Copyright (c) 2005-2016, Beangle Software.
+ * Copyright © 2005, The Beangle Software.
  *
- * Beangle is free software: you can redistribute it and/or modify
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Beangle is distributed in the hope that it will be useful.
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.beangle.db.conversion.schema
 
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
+import org.beangle.data.jdbc.dialect.SQL
+import org.beangle.data.jdbc.meta.{ Constraint, ForeignKey }
 import org.beangle.db.conversion.Converter
-import org.beangle.data.jdbc.meta.Constraint
-import org.beangle.data.jdbc.meta.ForeignKey
 
 class ConstraintConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
 
@@ -43,7 +43,7 @@ class ConstraintConverter(val source: SchemaWrapper, val target: SchemaWrapper) 
     for (contraint <- contraints.sorted) {
       if (contraint.isInstanceOf[ForeignKey]) {
         val fk = contraint.asInstanceOf[ForeignKey]
-        val sql = fk.alterSql
+        val sql = SQL.alterTableAddforeignKey(fk, target.dialect)
         try {
           target.executor.update(sql)
           logger.info(s"Apply constaint ${fk.name}")

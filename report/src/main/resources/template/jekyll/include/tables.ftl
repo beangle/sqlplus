@@ -15,7 +15,7 @@
   [#assign sortedTables = tables?sort_by("name")/]
   [#list 1..tabcnt as i]
   <tr>
-  	[#assign table= sortedTables[i-1] /]
+    [#assign table= sortedTables[i-1] /]
     <td>${i}</td>
     <td><a href="${report.findModule(table).path!"error"}.html#${table.name.value?lower_case?replace('_','')}">${table.name.value?lower_case}</a> ${table.comment!}</td>
     [#if tables[i-1+tabcnt]??]
