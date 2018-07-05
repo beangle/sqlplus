@@ -51,7 +51,8 @@ class Reactor(val config: Config) {
 
     val converters = new collection.mutable.ListBuffer[Converter]
 
-    val dataConverter = new TableConverter(sourceWrapper, targetWrapper, config.maxthreads, config.bulkSize, config.conversionModel)
+    val dataConverter = new TableConverter(sourceWrapper, targetWrapper, config.maxthreads,
+      config.bulkSize, config.dataRange, config.conversionModel)
     val tables = filterTables(config.source, sourceWrapper, targetWrapper);
     dataConverter.addAll(tables)
 

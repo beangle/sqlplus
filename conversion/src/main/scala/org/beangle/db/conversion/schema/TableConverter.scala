@@ -31,7 +31,8 @@ import org.beangle.data.jdbc.meta.Table
 import org.beangle.db.conversion.ConversionModel
 
 class TableConverter(val source: DataWrapper, val target: DataWrapper, val threads: Int,
-                     val bulkSize: Int, val model: ConversionModel.Value) extends Converter with Logging {
+                     val bulkSize: Int, val dataRange: Tuple2[Int, Int],
+                     val model: ConversionModel.Value) extends Converter with Logging {
 
   val tables = new ListBuffer[Tuple2[Table, Table]]
 
@@ -71,6 +72,10 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
     }
 
     private def processTable(table: Table, datacount: Int): Boolean = {
+      if (datacount < dataRange._1 || dataRange._2 < datacount) {
+        logger.info(s"Ignore table ${table.name} for count ${datacount}")
+        return false
+      }
       if (model == ConversionModel.Recreate) {
         createOrReplaceTable(table)
       } else {
