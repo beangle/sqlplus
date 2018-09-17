@@ -29,13 +29,36 @@ import javax.sql.DataSource
 object Config {
 
   def apply(xml: scala.xml.Elem): Config = {
-    new Config(Config.source(xml), Config.target(xml), Config.maxtheads(xml))
+    new Config(Config.source(xml), Config.target(xml), Config.maxtheads(xml),
+      Config.bulkSize(xml), Config.datarange(xml), Config.model(xml))
+  }
+
+  private def model(xml: scala.xml.Elem): ConversionModel.Value = {
+    val mt = (xml \ "@model").text.trim
+    if (Strings.isEmpty(mt)) ConversionModel.Recreate
+    else ConversionModel.withName(mt)
   }
 
   private def maxtheads(xml: scala.xml.Elem): Int = {
     val mt = (xml \ "@maxthreads").text.trim
     val maxthreads = Numbers.toInt(mt, 5)
     if (maxthreads > 0) maxthreads else 5
+  }
+  private def datarange(xml: scala.xml.Elem): Tuple2[Int, Int] = {
+    val mt = (xml \ "@datarange").text.trim
+    if (Strings.isEmpty(mt)) {
+      Tuple2(0, Int.MaxValue)
+    } else {
+      val min = Strings.trim(Strings.substringBefore(mt, "-"))
+      val max = Strings.trim(Strings.substringAfter(mt, "-"))
+      Tuple2(Integer.parseInt(min), if (max == "*") Int.MaxValue else Integer.parseInt(max))
+    }
+  }
+
+  private def bulkSize(xml: scala.xml.Elem): Int = {
+    val bs = (xml \ "@bulksize").text.trim
+    val bsv = Numbers.toInt(bs, 30000)
+    if (bsv > 10000) bsv else 30000
   }
 
   private def source(xml: scala.xml.Elem): Source = {
@@ -74,7 +97,7 @@ object Config {
   final class TableConfig {
     var includes: Seq[String] = _
     var excludes: Seq[String] = _
-    var lowercase: Boolean = false
+    var lowercase: Boolean = true
     var withIndex: Boolean = true
     var withConstraint: Boolean = true
   }
@@ -114,5 +137,12 @@ object Config {
   }
 }
 
-class Config(val source: Config.Source, val target: Config.Target, val maxthreads: Int) {
+class Config(val source: Config.Source, val target: Config.Target, val maxthreads: Int,
+             val bulkSize:        Int,
+             val dataRange:       Tuple2[Int, Int],
+             val conversionModel: ConversionModel.Value) {
+}
+
+object ConversionModel extends Enumeration(1) {
+  val Recreate, CompareCount = Value
 }

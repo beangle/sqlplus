@@ -28,8 +28,11 @@ import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.db.conversion.{ Converter, DataWrapper }
 import org.beangle.data.jdbc.meta.Table
+import org.beangle.db.conversion.ConversionModel
 
-class TableConverter(val source: DataWrapper, val target: DataWrapper, val threads: Int = 5) extends Converter with Logging {
+class TableConverter(val source: DataWrapper, val target: DataWrapper, val threads: Int,
+                     val bulkSize: Int, val dataRange: Tuple2[Int, Int],
+                     val model: ConversionModel.Value) extends Converter with Logging {
 
   val tables = new ListBuffer[Tuple2[Table, Table]]
 
@@ -68,37 +71,68 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
       }
     }
 
-    private def createOrReplaceTable(table: Table): Boolean = {
+    private def processTable(table: Table, datacount: Int): Boolean = {
+      if (datacount < dataRange._1 || dataRange._2 < datacount) {
+        logger.info(s"Ignore table ${table.name} for count ${datacount}")
+        return false
+      }
+      if (model == ConversionModel.Recreate) {
+        createOrReplaceTable(table)
+      } else {
+        if (target.has(table)) {
+          if (target.count(table) == datacount) {
+            logger.info(s"Ignore table ${table.name} for same count.")
+            false
+          } else {
+            createOrReplaceTable(table)
+          }
+        } else {
+          if (target.create(table)) {
+            logger.info(s"Create table ${table.name}")
+            true
+          } else {
+            logger.error(s"Create table ${table.name} failure.")
+            false
+          }
+        }
+      }
+    }
+
+    def createOrReplaceTable(table: Table): Boolean = {
       if (target.drop(table)) {
         if (target.create(table)) {
           logger.info(s"Create table ${table.name}")
-          return true
+          true
         } else {
           logger.error(s"Create table ${table.name} failure.")
+          false
         }
+      } else {
+        logger.error(s"Cannot drop table ${table.name}.")
+        false
       }
-      false
     }
 
     def convert(pair: Tuple2[Table, Table]) {
       val srcTable = pair._1
       val targetTable = pair._2
       try {
-        if (!createOrReplaceTable(targetTable)) return
         var count = source.count(srcTable)
+        if (!processTable(targetTable, count)) return
 
         if (count == 0) {
           target.save(targetTable, List.empty)
           logger.info(s"Insert $targetTable(0)")
         } else {
           if (count >= 600000 && !(source.supportLimit && srcTable.primaryKey != null)) {
-            println("Cannot paginate " + targetTable.name + " convertion ignored!")
+            println("Cannot paginate " + targetTable.name + " conversion ignored!")
             return
           }
+
           var curr = 0
           var pageIndex = 0
           while (curr < count) {
-            val limit = new PageLimit(pageIndex + 1, 10000)
+            val limit = new PageLimit(pageIndex + 1, bulkSize)
             val data = if (source.supportLimit && srcTable.primaryKey != null) source.get(srcTable, limit) else source.get(srcTable)
             var breakable = false
             if (data.isEmpty) {

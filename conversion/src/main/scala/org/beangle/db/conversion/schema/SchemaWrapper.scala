@@ -37,11 +37,15 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
     if (loadSequence) loader.loadSequences(schema)
   }
 
-  def drop(table: Table): Boolean = {
+  override def has(table: Table): Boolean = {
+    schema.getTable(table.name.value).isDefined
+  }
+
+  override def drop(table: Table): Boolean = {
     try {
-      schema.tables.get(table.name) foreach { t =>
-        schema.tables.remove(table.name)
-        executor.update(dialect.tableGrammar.dropCascade(table.qualifiedName))
+      schema.getTable(table.name.value) foreach { t =>
+        schema.tables.remove(t.name)
+        executor.update(dialect.tableGrammar.dropCascade(t.qualifiedName))
       }
     } catch {
       case e: Exception =>
@@ -51,8 +55,8 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
     return true
   }
 
-  def create(table: Table): Boolean = {
-    if (schema.tables.get(table.name).isEmpty) {
+  override def create(table: Table): Boolean = {
+    if (schema.getTable(table.name.value).isEmpty) {
       try {
         executor.update(SQL.createTable(table, dialect))
       } catch {

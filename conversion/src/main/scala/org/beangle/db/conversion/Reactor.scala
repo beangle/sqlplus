@@ -51,7 +51,8 @@ class Reactor(val config: Config) {
 
     val converters = new collection.mutable.ListBuffer[Converter]
 
-    val dataConverter = new TableConverter(sourceWrapper, targetWrapper, config.maxthreads)
+    val dataConverter = new TableConverter(sourceWrapper, targetWrapper, config.maxthreads,
+      config.bulkSize, config.dataRange, config.conversionModel)
     val tables = filterTables(config.source, sourceWrapper, targetWrapper);
     dataConverter.addAll(tables)
 
@@ -93,7 +94,9 @@ class Reactor(val config: Config) {
     for (srcTable <- tables) {
       var targetTable = srcTable.clone()
       targetTable.updateSchema(targetWrapper.schema)
-      targetTable.toCase(source.table.lowercase)
+      if (source.table.lowercase) {
+        targetTable.toCase(true)
+      }
       targetTable.attach(targetWrapper.dialect.engine)
       tablePairs.put(targetTable.name.toString, (srcTable -> targetTable))
     }

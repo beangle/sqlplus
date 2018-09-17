@@ -27,6 +27,8 @@ trait DataWrapper {
 
   def get(table: Table, limit: PageLimit): Seq[Array[Any]]
 
+  def has(table: Table): Boolean
+
   def drop(table: Table): Boolean
 
   def create(table: Table): Boolean
