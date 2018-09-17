@@ -49,8 +49,8 @@ object Config {
     tableConfig.lowercase = "true" == (xml \\ "tables" \ "@lowercase").text
     tableConfig.withIndex = "false" != (xml \\ "tables" \ "@index").text
     tableConfig.withConstraint = "false" != (xml \\ "tables" \ "@constraint").text
-    tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim)
-    tableConfig.excludes = Strings.split((xml \\ "tables" \\ "excludes").text.trim)
+    tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim.toLowerCase)
+    tableConfig.excludes = Strings.split((xml \\ "tables" \\ "excludes").text.trim.toLowerCase)
     source.table = tableConfig
 
     val seqConfig = new SeqConfig
