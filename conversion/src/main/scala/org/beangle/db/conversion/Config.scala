@@ -1,26 +1,27 @@
 /*
- * Beangle, Agile Development Scaffold and Toolkit
+ * Beangle, Agile Development Scaffold and Toolkits.
  *
- * Copyright (c) 2005-2016, Beangle Software.
+ * Copyright © 2005, The Beangle Software.
  *
- * Beangle is free software: you can redistribute it and/or modify
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Beangle is distributed in the hope that it will be useful.
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.beangle.db.conversion
 
 import org.beangle.commons.lang.{ Numbers, Strings }
-import org.beangle.data.jdbc.dialect.{ Dialect, Name }
+import org.beangle.data.jdbc.dialect.Dialect
 import org.beangle.data.jdbc.ds.{ DataSourceUtils, DatasourceConfig }
+import org.beangle.data.jdbc.meta.{ Database, Identifier, Schema }
 import org.beangle.db.conversion.schema.SchemaWrapper
 
 import javax.sql.DataSource
@@ -28,13 +29,36 @@ import javax.sql.DataSource
 object Config {
 
   def apply(xml: scala.xml.Elem): Config = {
-    new Config(Config.source(xml), Config.target(xml), Config.maxtheads(xml))
+    new Config(Config.source(xml), Config.target(xml), Config.maxtheads(xml),
+      Config.bulkSize(xml), Config.datarange(xml), Config.model(xml))
+  }
+
+  private def model(xml: scala.xml.Elem): ConversionModel.Value = {
+    val mt = (xml \ "@model").text.trim
+    if (Strings.isEmpty(mt)) ConversionModel.Recreate
+    else ConversionModel.withName(mt)
   }
 
   private def maxtheads(xml: scala.xml.Elem): Int = {
     val mt = (xml \ "@maxthreads").text.trim
     val maxthreads = Numbers.toInt(mt, 5)
     if (maxthreads > 0) maxthreads else 5
+  }
+  private def datarange(xml: scala.xml.Elem): Tuple2[Int, Int] = {
+    val mt = (xml \ "@datarange").text.trim
+    if (Strings.isEmpty(mt)) {
+      Tuple2(0, Int.MaxValue)
+    } else {
+      val min = Strings.trim(Strings.substringBefore(mt, "-"))
+      val max = Strings.trim(Strings.substringAfter(mt, "-"))
+      Tuple2(Integer.parseInt(min), if (max == "*") Int.MaxValue else Integer.parseInt(max))
+    }
+  }
+
+  private def bulkSize(xml: scala.xml.Elem): Int = {
+    val bs = (xml \ "@bulksize").text.trim
+    val bsv = Numbers.toInt(bs, 30000)
+    if (bsv > 10000) bsv else 30000
   }
 
   private def source(xml: scala.xml.Elem): Source = {
@@ -48,8 +72,8 @@ object Config {
     tableConfig.lowercase = "true" == (xml \\ "tables" \ "@lowercase").text
     tableConfig.withIndex = "false" != (xml \\ "tables" \ "@index").text
     tableConfig.withConstraint = "false" != (xml \\ "tables" \ "@constraint").text
-    tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim)
-    tableConfig.excludes = Strings.split((xml \\ "tables" \\ "excludes").text.trim)
+    tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim.toLowerCase)
+    tableConfig.excludes = Strings.split((xml \\ "tables" \\ "excludes").text.trim.toLowerCase)
     source.table = tableConfig
 
     val seqConfig = new SeqConfig
@@ -73,7 +97,7 @@ object Config {
   final class TableConfig {
     var includes: Seq[String] = _
     var excludes: Seq[String] = _
-    var lowercase: Boolean = false
+    var lowercase: Boolean = true
     var withIndex: Boolean = true
     var withConstraint: Boolean = true
   }
@@ -82,33 +106,43 @@ object Config {
     var includes: Seq[String] = _
     var excludes: Seq[String] = _
     var lowercase: Boolean = false
-
   }
 
-  final class Source(val dialect: Dialect, val dataSource: DataSource) {
-    var schema: Name = _
-    var catalog: Name = _
+  class SchemaHolder(val dialect: Dialect, val dataSource: DataSource) {
+    val database = new Database(dialect.engine)
+    var schema: Identifier = _
+    var catalog: Identifier = _
+
+    def getSchema: Schema = {
+      if (null == schema) schema = Identifier(dialect.defaultSchema)
+      val rs = database.getOrCreateSchema(schema)
+      rs.catalog = Option(catalog)
+      rs
+    }
+  }
+
+  final class Source(dialect: Dialect, dataSource: DataSource) extends SchemaHolder(dialect, dataSource) {
     var table: TableConfig = _
     var sequence: SeqConfig = _
 
     def buildWrapper(): SchemaWrapper = {
-      if (null == schema && null != dialect.defaultSchema) schema = Name(dialect.defaultSchema)
-      new SchemaWrapper(dataSource, dialect, catalog, schema)
+      new SchemaWrapper(dataSource, dialect, getSchema)
     }
-
   }
 
-  final class Target(val dialect: Dialect, val dataSource: DataSource) {
-    var schema: Name = _
-    var catalog: Name = _
-
+  final class Target(dialect: Dialect, dataSource: DataSource) extends SchemaHolder(dialect, dataSource) {
     def buildWrapper(): SchemaWrapper = {
-      if (null == schema) schema = Name(dialect.defaultSchema)
-      new SchemaWrapper(dataSource, dialect, catalog, schema)
+      new SchemaWrapper(dataSource, dialect, getSchema)
     }
-
   }
 }
 
-class Config(val source: Config.Source, val target: Config.Target, val maxthreads: Int) {
+class Config(val source: Config.Source, val target: Config.Target, val maxthreads: Int,
+             val bulkSize:        Int,
+             val dataRange:       Tuple2[Int, Int],
+             val conversionModel: ConversionModel.Value) {
+}
+
+object ConversionModel extends Enumeration(1) {
+  val Recreate, CompareCount = Value
 }

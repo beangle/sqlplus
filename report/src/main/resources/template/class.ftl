@@ -25,13 +25,12 @@ class ${table.name.value?lower_case}{
 }
 [/#list]
 
-
 [#list referTables as table]
 /**
 [#if table.schema??]
-	[#assign tableid=table.schema+"."+table.name]
+  [#assign tableid=table.schema+"."+table.name]
 [#else]
-	[#assign tableid=table.name]
+  [#assign tableid=table.name]
 [/#if]
  * [#if (database.getTable(tableid)?exists)]
  * @note ${database.getTable(tableid).comment!}

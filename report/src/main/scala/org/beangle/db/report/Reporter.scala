@@ -1,40 +1,39 @@
 /*
- * Beangle, Agile Development Scaffold and Toolkit
+ * Beangle, Agile Development Scaffold and Toolkits.
  *
- * Copyright (c) 2005-2016, Beangle Software.
+ * Copyright © 2005, The Beangle Software.
  *
- * Beangle is free software: you can redistribute it and/or modify
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Beangle is distributed in the hope that it will be useful.
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Beangle.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.beangle.db.report
 
-import java.io.{ File, FileInputStream }
+import java.io.{ BufferedReader, File, FileInputStream, InputStreamReader }
 import java.util.Locale
-import org.beangle.commons.io.Files.{ / => /, forName, stringWriter }
+
+import org.beangle.commons.collection.Collections
+import org.beangle.commons.io.Files.{ /, forName, stringWriter }
 import org.beangle.commons.lang.ClassLoaders
 import org.beangle.commons.lang.Strings.{ isEmpty, substringAfterLast, substringBefore, substringBeforeLast }
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.meta.{ Schema, Table }
 import org.beangle.data.jdbc.ds.DataSourceUtils
+import org.beangle.data.jdbc.meta.{ Database, MetadataLoader, Schema, Table }
 import org.beangle.db.report.model.{ Module, Report }
 import org.beangle.template.freemarker.BeangleObjectWrapper
 import org.umlgraph.doclet.UmlGraph
+
 import freemarker.cache.{ ClassTemplateLoader, FileTemplateLoader, MultiTemplateLoader }
 import freemarker.template.Configuration
-import javax.sql.DataSource
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import org.beangle.commons.collection.Collections
 
 object MultiReport extends Logging {
   def main(args: Array[String]): Unit = {
@@ -128,12 +127,15 @@ object Reporter extends Logging {
 
 class Reporter(val report: Report, val dir: String) extends Logging {
   val dbconf = report.dbconf
+  val db = new Database(dbconf.dialect.engine)
+
   val ds = DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
-  val database = new Schema(report.dbconf.dialect, null, dbconf.schema)
+  val database = new Schema(db, dbconf.schema)
 
   val meta = ds.getConnection().getMetaData()
-  database.loadTables(meta, true)
-  database.loadSequences(meta)
+  val loader = new MetadataLoader(meta, dbconf.dialect)
+  loader.loadTables(database, true)
+  loader.loadSequences(database)
 
   val cfg = new Configuration(Configuration.VERSION_2_3_24)
   cfg.setEncoding(Locale.getDefault, "UTF-8")
@@ -143,7 +145,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     cfg.setTemplateLoader(new MultiTemplateLoader(Array(new FileTemplateLoader(overrideDir), new ClassTemplateLoader(getClass, "/template"))))
   } else
     cfg.setTemplateLoader(new ClassTemplateLoader(getClass, "/template"))
-  cfg.setObjectWrapper(new BeangleObjectWrapper(true))
+  cfg.setObjectWrapper(new BeangleObjectWrapper)
 
   def filterTables() {
     val lastTables = new collection.mutable.HashSet[Table]

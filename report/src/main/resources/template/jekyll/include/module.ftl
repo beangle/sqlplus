@@ -2,14 +2,14 @@
 [#macro moduleindex prefix module]
 * [${prefix} ${module.title}](${module.path}.html)
 [#list module.children as m]
-	[@moduleindex prefix+"."+(m_index+1),m;prefix,module/]
+  [@moduleindex prefix+"."+(m_index+1),m;prefix,module/]
 [/#list]
 [/#macro]
 
 [#macro moduletree prefix module]
 * ${prefix} ${module.title}
 [#list module.children as m]
-	[@moduletree prefix+"."+(m_index+1),m;prefix,module/]
+  [@moduletree prefix+"."+(m_index+1),m;prefix,module/]
 [/#list]
 [/#macro]
 
@@ -23,6 +23,6 @@
 [/#list]
 
 [#list module.children as m]
-	[@moduletables prefix+"."+(m_index+1),m;prefix,module/]
+  [@moduletables prefix+"."+(m_index+1),m;prefix,module/]
 [/#list]
 [/#macro]
