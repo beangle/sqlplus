@@ -16,19 +16,18 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion.schema
+package org.beangle.db.transport.schema
 
 import java.util.concurrent.LinkedBlockingQueue
-
-import scala.collection.mutable.ListBuffer
 
 import org.beangle.commons.collection.page.PageLimit
 import org.beangle.commons.lang.ThreadTasks
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
-import org.beangle.db.conversion.{ Converter, DataWrapper }
 import org.beangle.data.jdbc.meta.Table
-import org.beangle.db.conversion.ConversionModel
+import org.beangle.db.transport.{ConversionModel, Converter, DataWrapper}
+
+import scala.collection.mutable.ListBuffer
 
 class TableConverter(val source: DataWrapper, val target: DataWrapper, val threads: Int,
                      val bulkSize: Int, val dataRange: Tuple2[Int, Int],
@@ -36,18 +35,18 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
 
   val tables = new ListBuffer[Tuple2[Table, Table]]
 
-  protected def addTable(pair: Tuple2[Table, Table]) {
+  protected def addTable(pair: Tuple2[Table, Table]): Unit = {
     tables += pair
   }
 
-  def addAll(pairs: Seq[Tuple2[Table, Table]]) {
+  def addAll(pairs: Seq[Tuple2[Table, Table]]): Unit = {
     tables ++= pairs
   }
 
-  def reset() {
+  def reset(): Unit = {
   }
 
-  def start() {
+  def start(): Unit = {
     val watch = new Stopwatch(true)
     val tableCount = tables.length
     val buffer = new LinkedBlockingQueue[Tuple2[Table, Table]]
@@ -66,7 +65,7 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
           if (null != p) convert(p)
         } catch {
           case e: IndexOutOfBoundsException =>
-          case e: Exception                 => logger.error("Error in convertion ", e)
+          case e: Exception => logger.error("Error in convertion ", e)
         }
       }
     }
@@ -113,7 +112,7 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
       }
     }
 
-    def convert(pair: Tuple2[Table, Table]) {
+    def convert(pair: Tuple2[Table, Table]): Unit = {
       val srcTable = pair._1
       val targetTable = pair._2
       try {
@@ -159,4 +158,5 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
       }
     }
   }
+
 }

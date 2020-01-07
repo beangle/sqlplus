@@ -16,15 +16,14 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion
-
-import org.beangle.commons.lang.{ Numbers, Strings }
-import org.beangle.data.jdbc.dialect.Dialect
-import org.beangle.data.jdbc.ds.{ DataSourceUtils, DatasourceConfig }
-import org.beangle.data.jdbc.meta.{ Database, Identifier, Schema }
-import org.beangle.db.conversion.schema.SchemaWrapper
+package org.beangle.db.transport
 
 import javax.sql.DataSource
+import org.beangle.commons.lang.{Numbers, Strings}
+import org.beangle.data.jdbc.dialect.Dialect
+import org.beangle.data.jdbc.ds.DataSourceUtils
+import org.beangle.data.jdbc.meta.{Database, Identifier, Schema}
+import org.beangle.db.transport.schema.SchemaWrapper
 
 object Config {
 
@@ -44,6 +43,7 @@ object Config {
     val maxthreads = Numbers.toInt(mt, 5)
     if (maxthreads > 0) maxthreads else 5
   }
+
   private def datarange(xml: scala.xml.Elem): Tuple2[Int, Int] = {
     val mt = (xml \ "@datarange").text.trim
     if (Strings.isEmpty(mt)) {
@@ -62,7 +62,7 @@ object Config {
   }
 
   private def source(xml: scala.xml.Elem): Source = {
-    val dbconf = DatasourceConfig.build((xml \\ "source").head)
+    val dbconf = DataSourceUtils.parseXml((xml \\ "source").head)
 
     val ds = DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
     val source = new Source(dbconf.dialect, ds)
@@ -86,7 +86,7 @@ object Config {
   }
 
   private def target(xml: scala.xml.Elem): Target = {
-    val dbconf = DatasourceConfig.build((xml \\ "target").head)
+    val dbconf = DataSourceUtils.parseXml((xml \\ "target").head)
 
     val target = new Target(dbconf.dialect, DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props))
     target.schema = dbconf.schema
@@ -135,11 +135,12 @@ object Config {
       new SchemaWrapper(dataSource, dialect, getSchema)
     }
   }
+
 }
 
 class Config(val source: Config.Source, val target: Config.Target, val maxthreads: Int,
-             val bulkSize:        Int,
-             val dataRange:       Tuple2[Int, Int],
+             val bulkSize: Int,
+             val dataRange: Tuple2[Int, Int],
              val conversionModel: ConversionModel.Value) {
 }
 

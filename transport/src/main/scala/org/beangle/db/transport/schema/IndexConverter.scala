@@ -16,11 +16,11 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion.schema
+package org.beangle.db.transport.schema
 
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
-import org.beangle.db.conversion.Converter
+import org.beangle.db.transport.Converter
 import org.beangle.data.jdbc.meta.Table
 import org.beangle.data.jdbc.dialect.SQL
 
@@ -28,10 +28,10 @@ class IndexConverter(val source: SchemaWrapper, val target: SchemaWrapper) exten
 
   val tables = new collection.mutable.ListBuffer[Table]
 
-  def reset() {
+  def reset():Unit= {
   }
 
-  def start() {
+  def start() :Unit={
     val watch = new Stopwatch(true)
     var indexCount = 0;
     for (table <- tables) {

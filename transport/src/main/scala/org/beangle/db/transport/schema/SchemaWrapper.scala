@@ -16,16 +16,15 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion.schema
-
-import org.beangle.commons.collection.page.PageLimit
-import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.dialect.{ Dialect, SQL }
-import org.beangle.data.jdbc.meta.{ MetadataLoader, Schema, Sequence, Table }
-import org.beangle.data.jdbc.query.JdbcExecutor
-import org.beangle.db.conversion.DataWrapper
+package org.beangle.db.transport.schema
 
 import javax.sql.DataSource
+import org.beangle.commons.collection.page.PageLimit
+import org.beangle.commons.logging.Logging
+import org.beangle.data.jdbc.dialect.{Dialect, SQL}
+import org.beangle.data.jdbc.meta.{MetadataLoader, Schema, Sequence, Table}
+import org.beangle.data.jdbc.query.JdbcExecutor
+import org.beangle.db.transport.DataWrapper
 
 class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema: Schema)
   extends DataWrapper with Logging {
@@ -47,12 +46,12 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
         schema.tables.remove(t.name)
         executor.update(dialect.tableGrammar.dropCascade(t.qualifiedName))
       }
+      true
     } catch {
       case e: Exception =>
         logger.error(s"Drop table ${table.name} failed", e)
-        return false
+        false
     }
-    return true
   }
 
   override def create(table: Table): Boolean = {
@@ -88,12 +87,12 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
     try {
       val createSql = SQL.createSequence(sequence, dialect)
       if (null != createSql) executor.update(createSql)
+      true
     } catch {
       case e: Exception =>
         logger.error(s"cannot create sequence ${sequence.name}", e)
-        return false
+        false
     }
-    return true
   }
 
   def count(table: Table): Int = {
@@ -101,10 +100,10 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
       + System.currentTimeMillis).get
   }
 
-  def get(table: Table, limit: PageLimit): Seq[Array[Any]] = {
+  def get(table: Table, limit: PageLimit): collection.Seq[Array[Any]] = {
     val orderBy = new StringBuffer
     table.primaryKey foreach { pk =>
-      if (pk.columns.size > 0) {
+      if (pk.columns.nonEmpty) {
         orderBy.append(" order by ")
         orderBy.append(pk.columnNames.foldLeft("")(_ + "," + _).substring(1))
       }
@@ -116,17 +115,17 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
     executor.query(rs._1, rs._2.toArray: _*)
   }
 
-  def get(table: Table): Seq[Array[Any]] = {
+  def get(table: Table): collection.Seq[Array[Any]] = {
     executor.query(SQL.query(table))
   }
 
-  def save(table: Table, datas: Seq[Array[Any]]): Int = {
+  def save(table: Table, datas: collection.Seq[Array[_]]): Int = {
     val types = for (column <- table.columns) yield column.sqlType.code
     val insertSql = SQL.insert(table)
-    executor.batch(insertSql, datas, types).length
+    executor.batch(insertSql, datas.toSeq, types.toSeq).length
   }
 
-  def supportLimit = (null != dialect.limitGrammar)
+  def supportLimit: Boolean = (null != dialect.limitGrammar)
 
   def close() {}
 }

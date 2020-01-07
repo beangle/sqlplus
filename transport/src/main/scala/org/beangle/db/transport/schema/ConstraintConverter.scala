@@ -16,27 +16,27 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion.schema
+package org.beangle.db.transport.schema
 
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.dialect.SQL
-import org.beangle.data.jdbc.meta.{ Constraint, ForeignKey }
-import org.beangle.db.conversion.Converter
+import org.beangle.data.jdbc.meta.{Constraint, ForeignKey}
+import org.beangle.db.transport.Converter
 
 class ConstraintConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
 
   private val contraints = new collection.mutable.ListBuffer[Constraint]
 
-  def addAll(newContraints: Seq[Constraint]) {
+  def addAll(newContraints: Seq[Constraint]): Unit = {
     contraints ++= newContraints
   }
 
-  def reset() {
+  def reset(): Unit = {
 
   }
 
-  def start() {
+  def start(): Unit = {
     val watch = new Stopwatch(true)
     logger.info("Start constraint replication...")
     val targetSchema = target.schema.name

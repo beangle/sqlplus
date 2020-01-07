@@ -16,28 +16,29 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion
+package org.beangle.db.transport
 
-trait Converter {
+import org.beangle.commons.collection.page.PageLimit
+import org.beangle.data.jdbc.meta.Table
 
-  /**
-   * 设置目标数据源
-   */
-  def target: DataWrapper
+trait DataWrapper {
 
-  /**
-   * 设置源数据源
-   */
-  def source: DataWrapper
+  def get(table: Table): collection.Seq[Array[Any]]
 
-  /**
-   * 重新开始
-   */
-  def reset()
+  def get(table: Table, limit: PageLimit): collection.Seq[Array[Any]]
 
-  /**
-   * 开始导入
-   */
-  def start()
+  def has(table: Table): Boolean
+
+  def drop(table: Table): Boolean
+
+  def create(table: Table): Boolean
+
+  def save(table: Table, datas: collection.Seq[Array[_]]): Int
+
+  def close(): Unit
+
+  def count(table: Table): Int
+
+  def supportLimit: Boolean
 
 }
