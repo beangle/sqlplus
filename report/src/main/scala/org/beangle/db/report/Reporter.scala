@@ -127,13 +127,13 @@ object Reporter extends Logging {
 
 class Reporter(val report: Report, val dir: String) extends Logging {
   val dbconf = report.dbconf
-  val db = new Database(dbconf.dialect.engine)
+  val db = new Database(dbconf.engine)
 
   val ds = DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
   val database = new Schema(db, dbconf.schema)
 
   val meta = ds.getConnection().getMetaData()
-  val loader = new MetadataLoader(meta, dbconf.dialect)
+  val loader = new MetadataLoader(meta, dbconf.engine)
   loader.loadTables(database, true)
   loader.loadSequences(database)
 
@@ -157,7 +157,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
 
   def genWiki() {
     val data = new collection.mutable.HashMap[String, Any]
-    data += ("dialect" -> report.dbconf.dialect)
+    data += ("engine" -> report.dbconf.engine)
     data += ("tablesMap" -> database.tables)
     data += ("report" -> report)
     data += ("sequences" -> database.sequences)
@@ -176,7 +176,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
 
   def renderModule(module: Module, template: String, data: collection.mutable.HashMap[String, Any]) {
     data.put("module", module)
-    if (!module.tables.isEmpty) {
+    if (module.tables.nonEmpty) {
       logger.info(s"rendering module $module...")
       render(data, template, module.path)
     }

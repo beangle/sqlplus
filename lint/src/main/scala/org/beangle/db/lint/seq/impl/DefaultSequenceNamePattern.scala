@@ -37,7 +37,7 @@ class DefaultSequenceNamePattern extends SequenceNamePattern with Initializing {
 
   def getPattern(): String = pattern
 
-  def init() {
+  def init(): Unit = {
     begin = pattern.indexOf("${table}")
     postfix = Strings.substringAfter(pattern, "${table}")
   }

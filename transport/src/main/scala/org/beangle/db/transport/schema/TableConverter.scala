@@ -20,7 +20,7 @@ package org.beangle.db.transport.schema
 
 import java.util.concurrent.LinkedBlockingQueue
 
-import org.beangle.commons.collection.page.PageLimit
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.ThreadTasks
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
@@ -33,13 +33,13 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
                      val bulkSize: Int, val dataRange: Tuple2[Int, Int],
                      val model: ConversionModel.Value) extends Converter with Logging {
 
-  val tables = new ListBuffer[Tuple2[Table, Table]]
+  val tables = new ListBuffer[(Table, Table)]
 
-  protected def addTable(pair: Tuple2[Table, Table]): Unit = {
+  protected def addTable(pair: (Table, Table)): Unit = {
     tables += pair
   }
 
-  def addAll(pairs: Seq[Tuple2[Table, Table]]): Unit = {
+  def addAll(pairs: Seq[(Table, Table)]): Unit = {
     tables ++= pairs
   }
 
@@ -49,8 +49,9 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
   def start(): Unit = {
     val watch = new Stopwatch(true)
     val tableCount = tables.length
-    val buffer = new LinkedBlockingQueue[Tuple2[Table, Table]]
-    buffer.addAll(collection.JavaConverters.asJavaCollection(tables.sortWith(_._1.name > _._1.name)))
+    val buffer = new LinkedBlockingQueue[(Table, Table)]
+    import scala.jdk.CollectionConverters._
+    buffer.addAll(tables.sortWith(_._1.name > _._1.name).asJava)
     logger.info(s"Start $tableCount tables data replication in $threads threads...")
     ThreadTasks.start(new ConvertTask(source, target, buffer), threads)
     logger.info(s"End $tableCount tables data replication,using $watch")
@@ -58,7 +59,7 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
 
   class ConvertTask(val source: DataWrapper, val target: DataWrapper, val buffer: LinkedBlockingQueue[Tuple2[Table, Table]]) extends Runnable {
 
-    def run() {
+    def run(): Unit = {
       while (!buffer.isEmpty) {
         try {
           val p = buffer.poll()
@@ -116,41 +117,36 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
       val srcTable = pair._1
       val targetTable = pair._2
       try {
-        var count = source.count(srcTable)
+        val count = source.count(srcTable)
         if (!processTable(targetTable, count)) return
 
         if (count == 0) {
           target.save(targetTable, List.empty)
           logger.info(s"Insert $targetTable(0)")
         } else {
-          if (count >= 600000 && !(source.supportLimit && srcTable.primaryKey != null)) {
-            println("Cannot paginate " + targetTable.name + " conversion ignored!")
-            return
-          }
-
+          val dataIter = source.get(srcTable)
+          val data = Collections.newBuffer[Array[Any]]
           var curr = 0
-          var pageIndex = 0
-          while (curr < count) {
-            val limit = new PageLimit(pageIndex + 1, bulkSize)
-            val data = if (source.supportLimit && srcTable.primaryKey != null) source.get(srcTable, limit) else source.get(srcTable)
-            var breakable = false
-            if (data.isEmpty) {
-              logger.error(s"Failure in fetching ${srcTable.name} data ${limit.pageIndex}(${limit.pageSize})")
-              if (limit.pageIndex * limit.pageSize >= count) breakable = true
-            }
-            if (!breakable) {
-              val successed = target.save(targetTable, data)
-              curr += data.size
-              pageIndex += 1
-              val name = Thread.currentThread().getName
-              if (successed == count) {
-                logger.info(s"$name Insert $targetTable($successed)")
-              } else if (successed == data.size) {
+          try {
+            while (curr < count && dataIter.hasNext) {
+              data += dataIter.next()
+              curr += 1
+              if (curr % 10000 == 0) {
+                target.save(targetTable, data)
+                val name = Thread.currentThread().getName
                 logger.info(s"$name Insert $targetTable($curr/$count)")
-              } else {
-                logger.warn(s"$name Insert $targetTable($successed/${data.size})")
+                data.clear()
               }
             }
+            if (data.nonEmpty) {
+              target.save(targetTable, data)
+              val name = Thread.currentThread().getName
+              logger.info(s"$name Insert $targetTable($curr/$count)")
+            }
+          } catch {
+            case e: Exception =>
+              dataIter.close()
+              logger.error(s"Insert error ${targetTable.qualifiedName}", e)
           }
         }
       } catch {

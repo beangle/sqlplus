@@ -18,14 +18,12 @@
  */
 package org.beangle.db.transport
 
-import org.beangle.commons.collection.page.PageLimit
 import org.beangle.data.jdbc.meta.Table
+import org.beangle.data.jdbc.query.ResultSetIterator
 
 trait DataWrapper {
 
-  def get(table: Table): collection.Seq[Array[Any]]
-
-  def get(table: Table, limit: PageLimit): collection.Seq[Array[Any]]
+  def get(table: Table): ResultSetIterator
 
   def has(table: Table): Boolean
 
@@ -38,7 +36,5 @@ trait DataWrapper {
   def close(): Unit
 
   def count(table: Table): Int
-
-  def supportLimit: Boolean
 
 }

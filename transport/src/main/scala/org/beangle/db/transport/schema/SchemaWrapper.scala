@@ -19,17 +19,16 @@
 package org.beangle.db.transport.schema
 
 import javax.sql.DataSource
-import org.beangle.commons.collection.page.PageLimit
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.dialect.{Dialect, SQL}
+import org.beangle.data.jdbc.engine.Engine
 import org.beangle.data.jdbc.meta.{MetadataLoader, Schema, Sequence, Table}
-import org.beangle.data.jdbc.query.JdbcExecutor
+import org.beangle.data.jdbc.query.{JdbcExecutor, ResultSetIterator}
 import org.beangle.db.transport.DataWrapper
 
-class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema: Schema)
+class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: Schema)
   extends DataWrapper with Logging {
   val executor = new JdbcExecutor(dataSource)
-  val loader = new MetadataLoader(dataSource.getConnection.getMetaData, dialect)
+  val loader = new MetadataLoader(dataSource.getConnection.getMetaData, engine)
 
   def loadMetas(loadTableExtra: Boolean, loadSequence: Boolean): Unit = {
     loader.loadTables(schema, loadTableExtra)
@@ -44,7 +43,7 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
     try {
       schema.getTable(table.name.value) foreach { t =>
         schema.tables.remove(t.name)
-        executor.update(dialect.tableGrammar.dropCascade(t.qualifiedName))
+        executor.update(engine.dropTable(t.qualifiedName))
       }
       true
     } catch {
@@ -57,7 +56,7 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
   override def create(table: Table): Boolean = {
     if (schema.getTable(table.name.value).isEmpty) {
       try {
-        executor.update(SQL.createTable(table, dialect))
+        executor.update(engine.createTable(table))
       } catch {
         case e: Exception =>
           logger.error(s"Cannot create table ${table.name}", e)
@@ -72,7 +71,7 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
     if (exists) {
       schema.sequences.remove(sequence)
       try {
-        val dropSql = SQL.dropSequence(sequence, dialect)
+        val dropSql = engine.dropSequence(sequence)
         if (null != dropSql) executor.update(dropSql)
       } catch {
         case e: Exception =>
@@ -85,7 +84,7 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
 
   def create(sequence: Sequence): Boolean = {
     try {
-      val createSql = SQL.createSequence(sequence, dialect)
+      val createSql = engine.createSequence(sequence)
       if (null != createSql) executor.update(createSql)
       true
     } catch {
@@ -96,36 +95,18 @@ class SchemaWrapper(val dataSource: DataSource, val dialect: Dialect, val schema
   }
 
   def count(table: Table): Int = {
-    executor.queryForInt("select count(*) from (" + SQL.query(table) + ") tb"
-      + System.currentTimeMillis).get
+    executor.queryForInt("select count(*) from " + table.qualifiedName + " tb").get
   }
 
-  def get(table: Table, limit: PageLimit): collection.Seq[Array[Any]] = {
-    val orderBy = new StringBuffer
-    table.primaryKey foreach { pk =>
-      if (pk.columns.nonEmpty) {
-        orderBy.append(" order by ")
-        orderBy.append(pk.columnNames.foldLeft("")(_ + "," + _).substring(1))
-      }
-    }
-
-    val sql = SQL.query(table) + orderBy.toString
-    val grammar = dialect.limitGrammar
-    val rs = grammar.limit(sql, (limit.pageIndex - 1) * limit.pageSize, limit.pageSize)
-    executor.query(rs._1, rs._2.toArray: _*)
-  }
-
-  def get(table: Table): collection.Seq[Array[Any]] = {
-    executor.query(SQL.query(table))
+  def get(table: Table): ResultSetIterator = {
+    executor.iterate(engine.query(table))
   }
 
   def save(table: Table, datas: collection.Seq[Array[_]]): Int = {
     val types = for (column <- table.columns) yield column.sqlType.code
-    val insertSql = SQL.insert(table)
+    val insertSql = engine.insert(table)
     executor.batch(insertSql, datas.toSeq, types.toSeq).length
   }
 
-  def supportLimit: Boolean = (null != dialect.limitGrammar)
-
-  def close() {}
+  def close(): Unit = {}
 }

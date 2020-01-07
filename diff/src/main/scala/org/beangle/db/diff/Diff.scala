@@ -68,7 +68,7 @@ class Diff {
     dbDiff
   }
 
-  protected[migration] def diff(newer: Table, older: Table): Option[TableDiff] = {
+  protected[diff] def diff(newer: Table, older: Table): Option[TableDiff] = {
     val table = new TableDiff(newer, older)
     if (newer.primaryKey != older.primaryKey) {
       table.hasPrimaryKey = true

@@ -20,7 +20,7 @@ package org.beangle.db.diff
 
 import java.sql.Types
 
-import org.beangle.data.jdbc.dialect.Dialects
+import org.beangle.data.jdbc.engine.Engines
 import org.beangle.data.jdbc.meta.{Column, Database}
 import org.junit.runner.RunWith
 import org.scalatest.Matchers
@@ -33,7 +33,6 @@ class MigratorTest extends AnyFunSpec with Matchers {
     it("test diff") {
       val migrator = new Migrator
       val engine = Engines.PostgreSQL
-      val dialect = Dialects.forName(engine.name)
       val newer = new Database(engine)
       val older = new Database(engine)
 
@@ -70,8 +69,8 @@ class MigratorTest extends AnyFunSpec with Matchers {
       user2.createIndex("idx_user_code", false, "code")
       val pk2 = user2.createPrimaryKey("", "code")
       val diff = migrator.sql(new Diff().diff(newer, older))
-      println(dialect.createTable(user2))
-      println(dialect.alterTableAddPrimaryKey(user2, pk2))
+      println(engine.createTable(user2))
+      println(engine.alterTableAddPrimaryKey(user2, pk2))
       println(diff.mkString(";\n"))
     }
   }

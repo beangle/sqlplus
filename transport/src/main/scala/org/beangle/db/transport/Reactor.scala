@@ -73,7 +73,7 @@ class Reactor(val config: Config) {
     sequences foreach { n =>
       n.schema = config.target.getSchema
       n.toCase(config.source.sequence.lowercase)
-      n.attach(config.target.dialect.engine)
+      n.attach(config.target.engine)
     }
     sequenceConverter.addAll(sequences)
     converters += sequenceConverter
@@ -96,7 +96,7 @@ class Reactor(val config: Config) {
       if (source.table.lowercase) {
         targetTable.toCase(true)
       }
-      targetTable.attach(targetWrapper.dialect.engine)
+      targetTable.attach(targetWrapper.engine)
       tablePairs.put(targetTable.name.toString, (srcTable -> targetTable))
     }
     tablePairs.values.toList

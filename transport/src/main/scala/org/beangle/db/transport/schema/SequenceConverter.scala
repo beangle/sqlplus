@@ -44,9 +44,9 @@ class SequenceConverter(val source: SchemaWrapper, val target: SchemaWrapper) ex
   }
 
   def start(): Unit = {
-    val targetDialect = target.dialect
-    if (null == targetDialect.sequenceGrammar) {
-      logger.info(s"Target database ${targetDialect.getClass().getSimpleName()} dosen't support sequence,replication ommited.")
+    val targetEngine = target.engine
+    if (!targetEngine.supportSequence) {
+      logger.info(s"Target database ${targetEngine.getClass().getSimpleName()} dosen't support sequence,replication ommited.")
       return
     }
     val watch = new Stopwatch(true)

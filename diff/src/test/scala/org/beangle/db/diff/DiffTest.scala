@@ -20,6 +20,7 @@ package org.beangle.db.diff
 
 import java.sql.Types
 
+import org.beangle.data.jdbc.engine.Engines
 import org.beangle.data.jdbc.meta.{Column, Identifier, Table}
 import org.junit.runner.RunWith
 import org.scalatest.Matchers

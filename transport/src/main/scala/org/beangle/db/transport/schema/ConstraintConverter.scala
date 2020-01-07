@@ -20,7 +20,6 @@ package org.beangle.db.transport.schema
 
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.dialect.SQL
 import org.beangle.data.jdbc.meta.{Constraint, ForeignKey}
 import org.beangle.db.transport.Converter
 
@@ -43,7 +42,7 @@ class ConstraintConverter(val source: SchemaWrapper, val target: SchemaWrapper) 
     for (contraint <- contraints.sorted) {
       if (contraint.isInstanceOf[ForeignKey]) {
         val fk = contraint.asInstanceOf[ForeignKey]
-        val sql = SQL.alterTableAddforeignKey(fk, target.dialect)
+        val sql = target.engine.alterTableAddForeignKey(fk)
         try {
           target.executor.update(sql)
           logger.info(s"Apply constaint ${fk.name}")
