@@ -29,8 +29,30 @@ import org.beangle.db.transport.{ConversionModel, Converter, DataWrapper}
 
 import scala.collection.mutable.ListBuffer
 
+object TableConverter {
+  val zero = '\u0000'
+
+  def sanitize(b: Any): Any = {
+    b match {
+      case s: String =>
+        var zeroIdx = s.indexOf(zero)
+        if (zeroIdx > -1) {
+          val sb = new StringBuilder(s)
+          while (zeroIdx > -1) {
+            sb.deleteCharAt(zeroIdx)
+            zeroIdx = sb.indexOf(zero)
+          }
+          sb.toString
+        } else {
+          s
+        }
+      case _ => b
+    }
+  }
+}
+
 class TableConverter(val source: DataWrapper, val target: DataWrapper, val threads: Int,
-                     val bulkSize: Int, val dataRange: Tuple2[Int, Int],
+                     val bulkSize: Int, val dataRange: (Int, Int),
                      val model: ConversionModel.Value) extends Converter with Logging {
 
   val tables = new ListBuffer[(Table, Table)]
@@ -113,7 +135,7 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
       }
     }
 
-    def convert(pair: Tuple2[Table, Table]): Unit = {
+    def convert(pair: (Table, Table)): Unit = {
       val srcTable = pair._1
       val targetTable = pair._2
       try {
@@ -132,16 +154,12 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
               data += dataIter.next()
               curr += 1
               if (curr % 10000 == 0) {
-                target.save(targetTable, data)
-                val name = Thread.currentThread().getName
-                logger.info(s"$name Insert $targetTable($curr/$count)")
+                insert(targetTable, data, curr, count)
                 data.clear()
               }
             }
             if (data.nonEmpty) {
-              target.save(targetTable, data)
-              val name = Thread.currentThread().getName
-              logger.info(s"$name Insert $targetTable($curr/$count)")
+              insert(targetTable, data, curr, count)
             }
           } catch {
             case e: Exception =>
@@ -155,4 +173,14 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
     }
   }
 
+  def insert(targetTable: Table, data: collection.Seq[Array[Any]], current: Int, total: Int): Unit = {
+    data foreach { d =>
+      d.indices foreach { i =>
+        d(i) = TableConverter.sanitize(d(i))
+      }
+    }
+    target.save(targetTable, data)
+    val name = Thread.currentThread().getName
+    logger.info(s"$name Insert $targetTable($current/$total)")
+  }
 }

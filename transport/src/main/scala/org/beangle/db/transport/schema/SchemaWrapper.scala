@@ -105,7 +105,7 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
   def save(table: Table, datas: collection.Seq[Array[_]]): Int = {
     val types = for (column <- table.columns) yield column.sqlType.code
     val insertSql = engine.insert(table)
-    executor.batch(insertSql, datas.toSeq, types.toSeq).length
+    executor.batch(insertSql, datas, types.toSeq).length
   }
 
   def close(): Unit = {}
