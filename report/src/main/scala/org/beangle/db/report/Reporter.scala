@@ -18,21 +18,20 @@
  */
 package org.beangle.db.report
 
-import java.io.{ BufferedReader, File, FileInputStream, InputStreamReader }
+import java.io.{BufferedReader, File, FileInputStream, InputStreamReader}
 import java.util.Locale
 
 import org.beangle.commons.collection.Collections
-import org.beangle.commons.io.Files.{ /, forName, stringWriter }
+import org.beangle.commons.io.Files.{/, forName, stringWriter}
 import org.beangle.commons.lang.ClassLoaders
-import org.beangle.commons.lang.Strings.{ isEmpty, substringAfterLast, substringBefore, substringBeforeLast }
+import org.beangle.commons.lang.Strings.{isEmpty, substringAfterLast, substringBefore, substringBeforeLast}
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.DataSourceUtils
-import org.beangle.data.jdbc.meta.{ Database, MetadataLoader, Schema, Table }
-import org.beangle.db.report.model.{ Module, Report }
+import org.beangle.data.jdbc.meta.{Database, MetadataLoader, Schema, Table}
+import org.beangle.db.report.model.{Module, Report}
 import org.beangle.template.freemarker.BeangleObjectWrapper
-import org.umlgraph.doclet.UmlGraph
 
-import freemarker.cache.{ ClassTemplateLoader, FileTemplateLoader, MultiTemplateLoader }
+import freemarker.cache.{ClassTemplateLoader, FileTemplateLoader, MultiTemplateLoader}
 import freemarker.template.Configuration
 
 object MultiReport extends Logging {
@@ -49,7 +48,7 @@ object MultiReport extends Logging {
     dir.listFiles() foreach { f =>
       if (f.isDirectory()) xmls ++= findReportXML(f)
       else {
-        if (f.getName.endsWith(".xml")) xmls += f.getAbsolutePath
+        if (f.getName.endsWith(".xml") && f.getName !="database.xml") xmls += f.getAbsolutePath
       }
     }
     xmls.toList
@@ -61,21 +60,20 @@ object Reporter extends Logging {
   val DotReady = checkDot()
 
   def main(args: Array[String]): Unit = {
-    if (!checkJdkTools()) {
-      logger.info("Report need tools.jar which contains com.sun.tools.javadoc utility.")
-      return ;
-    }
+    //    if (!checkJdkTools()) {
+    //      logger.info("Report need tools.jar which contains com.sun.tools.javadoc utility.")
+    //      return ;
+    //    }
     if (args.length < 1) {
       logger.info("Usage: Reporter /path/to/your/report.xml -debug")
       return
     }
 
     val reportxml = new File(args(0))
-    var dir = reportxml.getAbsolutePath()
-    dir = substringBeforeLast(dir, /) + / + substringBefore(substringAfterLast(dir, /), ".xml") + /
-    logger.info(s"All wiki and images will be generated in $dir")
-    val xml = scala.xml.XML.load(new FileInputStream(reportxml))
-    val reporter = new Reporter(Report(xml), dir)
+    val xmlPath = reportxml.getAbsolutePath()
+    val target = substringBeforeLast(xmlPath, /) + / + substringBefore(substringAfterLast(xmlPath, /), ".xml") + /
+    logger.info(s"All wiki and images will be generated in $target")
+    val reporter = new Reporter(Report(args(0)), target)
     reporter.filterTables()
 
     val debug = if (args.length > 1) args(1) == "-debug" else false
@@ -92,11 +90,10 @@ object Reporter extends Logging {
     }
   }
 
-  def gen(reporter: Reporter) {
+  def gen(reporter: Reporter): Unit = {
     try {
       reporter.genWiki()
-      reporter.genImages()
-      reporter.close()
+      //reporter.genImages()
       logger.info("report generate complete.")
     } catch {
       case e: Exception => e.printStackTrace
@@ -126,17 +123,6 @@ object Reporter extends Logging {
 }
 
 class Reporter(val report: Report, val dir: String) extends Logging {
-  val dbconf = report.dbconf
-  val db = new Database(dbconf.engine)
-
-  val ds = DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
-  val database = new Schema(db, dbconf.schema)
-
-  val meta = ds.getConnection().getMetaData()
-  val loader = new MetadataLoader(meta, dbconf.engine)
-  loader.loadTables(database, true)
-  loader.loadSequences(database)
-
   val cfg = new Configuration(Configuration.VERSION_2_3_24)
   cfg.setEncoding(Locale.getDefault, "UTF-8")
   val overrideDir = new File(dir + ".." + / + "template")
@@ -147,7 +133,9 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     cfg.setTemplateLoader(new ClassTemplateLoader(getClass, "/template"))
   cfg.setObjectWrapper(new BeangleObjectWrapper)
 
-  def filterTables() {
+  val database = report.database.getOrCreateSchema(report.schemaName)
+
+  def filterTables() :Unit={
     val lastTables = new collection.mutable.HashSet[Table]
     lastTables ++= database.tables.values
     for (module <- report.modules) module.filter(lastTables)
@@ -155,9 +143,9 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     report.tables = database.tables.values.filterNot(lastTables.contains(_))
   }
 
-  def genWiki() {
+  def genWiki(): Unit = {
     val data = new collection.mutable.HashMap[String, Any]
-    data += ("engine" -> report.dbconf.engine)
+    data += ("engine" -> report.database.engine)
     data += ("tablesMap" -> database.tables)
     data += ("report" -> report)
     data += ("sequences" -> database.sequences)
@@ -174,13 +162,12 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     }
   }
 
-  def renderModule(module: Module, template: String, data: collection.mutable.HashMap[String, Any]) {
+  def renderModule(module: Module, template: String, data: collection.mutable.HashMap[String, Any]): Unit = {
     data.put("module", module)
     if (module.tables.nonEmpty) {
       logger.info(s"rendering module $module...")
       render(data, template, module.path)
     }
-
     for (module <- module.children) renderModule(module, template, data)
   }
 
@@ -188,7 +175,8 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     if (report.images.isEmpty) return
 
     if (!Reporter.DotReady) {
-      logger.warn("""
+      logger.warn(
+        """
 Cannot find dot command. images generation skipped.
 dot is a tool to generate nice-looking diagrams with a minimum of effort. It's part of GraphViz.
 see http://www.graphviz.org/doc/info/lang.html and http://www.linuxdevcenter.com/pub/a/linux/2004/05/06/graphviz_dot.html""")
@@ -205,7 +193,7 @@ see http://www.graphviz.org/doc/info/lang.html and http://www.linuxdevcenter.com
     }
   }
 
-  private def render(data: collection.mutable.HashMap[String, Any], template: String, result: String = "") {
+  private def render(data: collection.mutable.HashMap[String, Any], template: String, result: String = ""): Unit = {
     val wikiResult = if (isEmpty(result)) template else result;
     val file = new File(dir + wikiResult + report.extension)
     file.getParentFile().mkdirs()
@@ -215,7 +203,7 @@ see http://www.graphviz.org/doc/info/lang.html and http://www.linuxdevcenter.com
     fw.close()
   }
 
-  private def genImage(data: Any, result: String) {
+  private def genImage(data: Any, result: String): Unit = {
     val javafile = new File(dir + "images" + / + result + ".java")
     javafile.getParentFile().mkdirs()
     val fw = stringWriter(javafile)
@@ -226,20 +214,16 @@ see http://www.graphviz.org/doc/info/lang.html and http://www.linuxdevcenter.com
     javafile.deleteOnExit()
   }
 
-  private def java2png(javafile: File) {
+  private def java2png(javafile: File): Unit = {
     val javaPath = javafile.getAbsolutePath()
     val filename = substringBefore(substringAfterLast(javaPath, /), ".java")
     val dotPath = substringBeforeLast(javaPath, /) + / + filename + ".dot"
     val pngPath = substringBeforeLast(javaPath, /) + / + filename + ".png"
     val dotfile = forName(dotPath)
-    UmlGraph.main(Array("-package", "-outputencoding", "utf-8", "-output", dotPath, javaPath));
+    //UmlGraph.main(Array("-package", "-outputencoding", "utf-8", "-output", dotPath, javaPath));
     if (dotfile.exists) {
       Runtime.getRuntime().exec("dot -Tpng -o" + pngPath + " " + dotPath);
       dotfile.deleteOnExit()
     }
-  }
-
-  def close(): Unit = {
-    DataSourceUtils.close(ds)
   }
 }

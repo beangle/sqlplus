@@ -32,7 +32,7 @@
   <tr>[#t/]
     <td>${col_index+1}</td>[#t/]
     <td>${col.name.value?lower_case}</td>[#t/]
-    <td>${col.typeName?lower_case}</td>[#t/]
+    <td>${col.sqlType.name?lower_case}</td>[#t/]
     <td>${col.nullable?string("是","否")}</td>[#t/]
     <td>${col.comment!}</td>[#t/]
     <td>[#assign finded=false][#t/]

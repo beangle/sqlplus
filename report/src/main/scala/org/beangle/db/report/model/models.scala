@@ -18,7 +18,6 @@
  */
 package org.beangle.db.report.model
 
-import scala.Array.canBuildFrom
 
 import org.beangle.data.jdbc.meta.Table
 import org.beangle.commons.lang.Strings
@@ -36,7 +35,7 @@ trait TableContainer {
   }
 
   def contains(tableName: String): Boolean = {
-    tables.exists(t => t.name.toCase(true) == tableName)
+    tables.exists(t => t.name.toCase(true).value == tableName)
   }
   def addTable(table: Table): Unit = {
     tables += table
@@ -46,7 +45,7 @@ trait TableContainer {
 class Image(val name: String, val title: String, tableseq: String, val description: String) extends TableContainer {
   override val patterns = Strings.split(tableseq.toLowerCase, ",").map(new AntPathPattern(_))
 
-  def select(alltables: collection.Iterable[Table]) {
+  def select(alltables: collection.Iterable[Table]) :Unit={
     for (table <- alltables) {
       if (matches(table.name.value)) addTable(table)
     }
