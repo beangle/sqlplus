@@ -20,11 +20,11 @@ package org.beangle.db.transport
 
 class ConvertException(message: String, cause: Throwable) extends RuntimeException(message, cause) {
 
-  def this(message: String) {
+  def this(message: String) = {
     this(message, null);
   }
 
-  def this(cause: Throwable) {
+  def this(cause: Throwable) = {
     this(null, cause);
   }
 
