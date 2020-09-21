@@ -3,18 +3,18 @@
   <parent>
     <groupId>org.beangle</groupId>
     <artifactId>beangle-scala</artifactId>
-    <version>27.1</version>
+    <version>28.0</version>
   </parent>
   <groupId>org.beangle.db</groupId>
   <artifactId>beangle-db-parent_2.13</artifactId>
   <packaging>pom</packaging>
-  <version>0.0.6-SNAPSHOT</version>
+  <version>0.0.6</version>
   <name>Beangle DB Parent</name>
 
   <properties>
-    <commons.version>5.1.17</commons.version>
-    <data.version>5.3.8</data.version>
-    <beangle.template.version>0.0.27</beangle.template.version>
+    <commons.version>5.2.0</commons.version>
+    <data.version>5.3.11</data.version>
+    <beangle.template.version>0.0.28</beangle.template.version>
     <HikariCP.version>3.4.5</HikariCP.version>
     <umlgraph.version>5.6.6</umlgraph.version>
   </properties>

@@ -68,7 +68,7 @@ object Report {
     report
   }
 
-  def parseModule(node: scala.xml.Node, report: Report, parent: Option[Module]) {
+  def parseModule(node: scala.xml.Node, report: Report, parent: Option[Module]): Unit = {
     val module = new Module((node \ "@name").text, (node \ "@title").text, (node \ "@tables").text)
     (node \ "image").foreach { ele =>
       module.addImage(
