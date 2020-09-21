@@ -18,13 +18,10 @@
  */
 package org.beangle.db.lint.seq.impl
 
-import org.beangle.data.jdbc.query.JdbcExecutor
-import org.beangle.commons.logging.Logging
-import org.beangle.db.lint.seq.SequenceNamePattern
-import org.beangle.db.lint.seq.TableSequence
-import org.beangle.db.lint.seq.TableSequenceDao
-
 import javax.sql.DataSource
+import org.beangle.commons.logging.Logging
+import org.beangle.data.jdbc.query.JdbcExecutor
+import org.beangle.db.lint.seq.{SequenceNamePattern, TableSequence, TableSequenceDao}
 
 class OracleTableSequenceDao extends TableSequenceDao with Logging {
 
@@ -76,9 +73,7 @@ class OracleTableSequenceDao extends TableSequenceDao with Logging {
   }
 
   /**
-   * @param sequence
-   * @param table
-   * @param column
+   * @param tableSequence
    */
   def adjust(tableSequence: TableSequence): Long = {
     val sequence = tableSequence.seqName
@@ -87,7 +82,7 @@ class OracleTableSequenceDao extends TableSequenceDao with Logging {
     val countSql = "select max(" + tableSequence.idColumnName + ") maxid from " + tableSequence.tableName
     val rs = jdbcExecutor.query(countSql)
     var max = 0L
-    if (!rs.isEmpty) {
+    if (rs.nonEmpty) {
       max = rs.head.head.asInstanceOf[Number].longValue
     }
     var repaired = 0L
@@ -105,7 +100,7 @@ class OracleTableSequenceDao extends TableSequenceDao with Logging {
       repaired = jdbcExecutor.queryForLong(getSql).get
       jdbcExecutor.update("ALTER SEQUENCE " + sequence + " INCREMENT BY  1")
     }
-    return repaired
+    repaired
   }
 
   def getAllNames(): List[String] = {
@@ -131,12 +126,12 @@ class OracleTableSequenceDao extends TableSequenceDao with Logging {
     err_seqs.toList
   }
 
-  def setRelation(relation: SequenceNamePattern) {
+  def setRelation(relation: SequenceNamePattern): Unit = {
     this.relation = relation
     this.relation.init()
   }
 
-  def setDataSource(source: DataSource) {
-    this.jdbcExecutor = new JdbcExecutor(source);
+  def setDataSource(source: DataSource): Unit = {
+    this.jdbcExecutor = new JdbcExecutor(source)
   }
 }

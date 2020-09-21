@@ -17,7 +17,7 @@
 #### ${prefix} ${module.title}
 [#list module.tables?sort_by("name") as table]
 
-##### 表格${table.name.value?lower_case}
+##### 表${table.name.value?lower_case}  ${table.comment!}
 
 [@drawtable table/]
 [/#list]

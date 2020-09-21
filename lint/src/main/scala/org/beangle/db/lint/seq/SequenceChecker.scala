@@ -20,23 +20,18 @@ package org.beangle.db.lint.seq
 
 import java.io.FileInputStream
 
-import org.beangle.data.jdbc.ds.DatasourceConfig
-import org.beangle.data.jdbc.ds.DataSourceUtils
-import org.beangle.commons.logging.Logging
-import org.beangle.db.lint.seq.impl.DefaultSequenceNamePattern
-import org.beangle.db.lint.seq.impl.OracleTableSequenceDao
-
 import javax.sql.DataSource
+import org.beangle.commons.logging.Logging
+import org.beangle.data.jdbc.ds.DataSourceUtils
+import org.beangle.db.lint.seq.impl.{DefaultSequenceNamePattern, OracleTableSequenceDao}
 
 object SequenceChecker extends Logging {
 
   /**
    * SequenceChecker /path/to/dbconfig.xml info|update|remove
-   *
    * @param args
-   * @throws Exception
    */
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     if (args.length < 1) {
       println("Usage: SequenceChecker /path/to/your/xml info|update|remove")
       return
@@ -60,9 +55,9 @@ object SequenceChecker extends Logging {
 
   }
 
-  def drop(tableSequenceDao: TableSequenceDao, sequences: List[TableSequence]) {
+  def drop(tableSequenceDao: TableSequenceDao, sequences: List[TableSequence]): Unit = {
     val ps = System.out
-    if (!sequences.isEmpty)
+    if (sequences.nonEmpty)
       ps.println("start drop ...")
     for (seq <- sequences) {
       if (null == seq.tableName) {
@@ -72,9 +67,9 @@ object SequenceChecker extends Logging {
     }
   }
 
-  def adjust(tableSequenceDao: TableSequenceDao, sequences: List[TableSequence]) {
+  def adjust(tableSequenceDao: TableSequenceDao, sequences: List[TableSequence]): Unit = {
     val ps = System.out
-    if (!sequences.isEmpty) ps.println("start adjust ...")
+    if (sequences.nonEmpty) ps.println("start adjust ...")
     for (seq <- sequences) {
       if (null != seq.tableName) {
         ps.println("adjust sequence " + seq.seqName + " with lastnumber "
@@ -84,7 +79,7 @@ object SequenceChecker extends Logging {
     ps.println("finish adjust")
   }
 
-  def info(sequences: List[TableSequence]) {
+  def info(sequences: List[TableSequence]): Unit = {
     val ps = System.out
     if (sequences.isEmpty) {
       ps.println("without any inconsistent  sequence")
@@ -98,7 +93,7 @@ object SequenceChecker extends Logging {
   }
 
   private def getDataSource(xml: scala.xml.Node): DataSource = {
-    val dbconf = DatasourceConfig.build(xml)
+    val dbconf = DataSourceUtils.parseXml(xml)
     DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
   }
 }

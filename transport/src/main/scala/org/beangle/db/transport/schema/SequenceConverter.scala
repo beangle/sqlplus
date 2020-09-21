@@ -16,18 +16,18 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion.schema
+package org.beangle.db.transport.schema
 
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
-import org.beangle.db.conversion.Converter
 import org.beangle.data.jdbc.meta.Sequence
+import org.beangle.db.transport.Converter
 
 class SequenceConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
 
   val sequences = new collection.mutable.ListBuffer[Sequence]
 
-  def reset() {
+  def reset(): Unit = {
 
   }
 
@@ -40,13 +40,13 @@ class SequenceConverter(val source: SchemaWrapper, val target: SchemaWrapper) ex
         logger.error(s"Recreate sequence {sequence.qualifiedName} failure.")
       }
     }
-    return false
+    false
   }
 
-  def start() {
-    val targetDialect = target.dialect
-    if (null == targetDialect.sequenceGrammar) {
-      logger.info(s"Target database ${targetDialect.getClass().getSimpleName()} dosen't support sequence,replication ommited.")
+  def start(): Unit = {
+    val targetEngine = target.engine
+    if (!targetEngine.supportSequence) {
+      logger.info(s"Target database ${targetEngine.getClass().getSimpleName()} dosen't support sequence,replication ommited.")
       return
     }
     val watch = new Stopwatch(true)
@@ -57,7 +57,7 @@ class SequenceConverter(val source: SchemaWrapper, val target: SchemaWrapper) ex
     logger.info(s"End ${sequences.length} sequence replication,using $watch")
   }
 
-  def addAll(newSequences: collection.Iterable[Sequence]) {
+  def addAll(newSequences: collection.Iterable[Sequence]): Unit = {
     sequences ++= newSequences
   }
 }

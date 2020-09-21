@@ -44,7 +44,7 @@ trait TableSequenceDao {
    */
   def drop(sequence_name: String): Boolean
 
-  def setRelation(relation: SequenceNamePattern);
+  def setRelation(relation: SequenceNamePattern):Unit
 
   def adjust(tableSequence: TableSequence): Long
 }

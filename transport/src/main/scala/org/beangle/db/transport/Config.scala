@@ -16,15 +16,14 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion
-
-import org.beangle.commons.lang.{ Numbers, Strings }
-import org.beangle.data.jdbc.dialect.Dialect
-import org.beangle.data.jdbc.ds.{ DataSourceUtils, DatasourceConfig }
-import org.beangle.data.jdbc.meta.{ Database, Identifier, Schema }
-import org.beangle.db.conversion.schema.SchemaWrapper
+package org.beangle.db.transport
 
 import javax.sql.DataSource
+import org.beangle.commons.lang.{Numbers, Strings}
+import org.beangle.data.jdbc.engine.Engine
+import org.beangle.data.jdbc.ds.DataSourceUtils
+import org.beangle.data.jdbc.meta.{Database, Identifier, Schema}
+import org.beangle.db.transport.schema.SchemaWrapper
 
 object Config {
 
@@ -44,6 +43,7 @@ object Config {
     val maxthreads = Numbers.toInt(mt, 5)
     if (maxthreads > 0) maxthreads else 5
   }
+
   private def datarange(xml: scala.xml.Elem): Tuple2[Int, Int] = {
     val mt = (xml \ "@datarange").text.trim
     if (Strings.isEmpty(mt)) {
@@ -62,23 +62,23 @@ object Config {
   }
 
   private def source(xml: scala.xml.Elem): Source = {
-    val dbconf = DatasourceConfig.build((xml \\ "source").head)
+    val dbconf = DataSourceUtils.parseXml((xml \\ "source").head)
 
     val ds = DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
-    val source = new Source(dbconf.dialect, ds)
+    val source = new Source(dbconf.engine, ds)
     source.schema = dbconf.schema
     source.catalog = dbconf.catalog
     val tableConfig = new TableConfig
     tableConfig.lowercase = "true" == (xml \\ "tables" \ "@lowercase").text
     tableConfig.withIndex = "false" != (xml \\ "tables" \ "@index").text
     tableConfig.withConstraint = "false" != (xml \\ "tables" \ "@constraint").text
-    tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim.toLowerCase)
-    tableConfig.excludes = Strings.split((xml \\ "tables" \\ "excludes").text.trim.toLowerCase)
+    tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim.toLowerCase).toSeq
+    tableConfig.excludes = Strings.split((xml \\ "tables" \\ "excludes").text.trim.toLowerCase).toSeq
     source.table = tableConfig
 
     val seqConfig = new SeqConfig
-    seqConfig.includes = Strings.split((xml \\ "sequences" \\ "includes").text.trim)
-    seqConfig.excludes = Strings.split((xml \\ "sequences" \\ "excludes").text.trim)
+    seqConfig.includes = Strings.split((xml \\ "sequences" \\ "includes").text.trim).toSeq
+    seqConfig.excludes = Strings.split((xml \\ "sequences" \\ "excludes").text.trim).toSeq
     seqConfig.lowercase = "true" == (xml \\ "sequences" \ "@lowercase").text
     source.sequence = seqConfig
 
@@ -86,9 +86,9 @@ object Config {
   }
 
   private def target(xml: scala.xml.Elem): Target = {
-    val dbconf = DatasourceConfig.build((xml \\ "target").head)
+    val dbconf = DataSourceUtils.parseXml((xml \\ "target").head)
 
-    val target = new Target(dbconf.dialect, DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props))
+    val target = new Target(dbconf.engine, DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props))
     target.schema = dbconf.schema
     target.catalog = dbconf.catalog
     target
@@ -108,38 +108,39 @@ object Config {
     var lowercase: Boolean = false
   }
 
-  class SchemaHolder(val dialect: Dialect, val dataSource: DataSource) {
-    val database = new Database(dialect.engine)
+  class SchemaHolder(val engine: Engine, val dataSource: DataSource) {
+    val database = new Database(engine)
     var schema: Identifier = _
     var catalog: Identifier = _
 
     def getSchema: Schema = {
-      if (null == schema) schema = Identifier(dialect.defaultSchema)
+      if (null == schema) schema = Identifier(engine.defaultSchema)
       val rs = database.getOrCreateSchema(schema)
       rs.catalog = Option(catalog)
       rs
     }
   }
 
-  final class Source(dialect: Dialect, dataSource: DataSource) extends SchemaHolder(dialect, dataSource) {
+  final class Source(engine: Engine, dataSource: DataSource) extends SchemaHolder(engine, dataSource) {
     var table: TableConfig = _
     var sequence: SeqConfig = _
 
     def buildWrapper(): SchemaWrapper = {
-      new SchemaWrapper(dataSource, dialect, getSchema)
+      new SchemaWrapper(dataSource, engine, getSchema)
     }
   }
 
-  final class Target(dialect: Dialect, dataSource: DataSource) extends SchemaHolder(dialect, dataSource) {
+  final class Target(engine: Engine, dataSource: DataSource) extends SchemaHolder(engine, dataSource) {
     def buildWrapper(): SchemaWrapper = {
-      new SchemaWrapper(dataSource, dialect, getSchema)
+      new SchemaWrapper(dataSource, engine, getSchema)
     }
   }
+
 }
 
 class Config(val source: Config.Source, val target: Config.Target, val maxthreads: Int,
-             val bulkSize:        Int,
-             val dataRange:       Tuple2[Int, Int],
+             val bulkSize: Int,
+             val dataRange: Tuple2[Int, Int],
              val conversionModel: ConversionModel.Value) {
 }
 

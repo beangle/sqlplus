@@ -16,35 +16,39 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion.schema
+package org.beangle.db.transport.schema
 
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
-import org.beangle.db.conversion.Converter
 import org.beangle.data.jdbc.meta.Table
-import org.beangle.data.jdbc.dialect.SQL
+import org.beangle.db.transport.Converter
 
 class IndexConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
 
   val tables = new collection.mutable.ListBuffer[Table]
 
-  def reset() {
+  def reset(): Unit = {
   }
 
-  def start() {
+  def start(): Unit = {
     val watch = new Stopwatch(true)
-    var indexCount = 0;
+    var indexCount = 0
+    val engine = target.engine
+    val executor = target.executor
     for (table <- tables) {
       for (index <- table.indexes) {
         try {
-          val notPK = table.primaryKey match {
-            case None     => false
-            case Some(pk) => index.columns != pk.columns
+          val isPK = table.primaryKey match {
+            case None => false
+            case Some(pk) => index.name == pk.name
           }
-          if (notPK) {
-            indexCount += 1
-            target.executor.update(SQL.createIndex(index))
+          indexCount += 1
+          if (isPK) {
+            executor.update(engine.alterTableAddPrimaryKey(table, table.primaryKey.get))
+          } else {
+            executor.update(engine.createIndex(index))
           }
+          logger.info(s"Create index ${index.name}")
         } catch {
           case e: Exception =>
             logger.error(s"Cannot create index ${index.name}", e)

@@ -3,25 +3,25 @@
   <parent>
     <groupId>org.beangle</groupId>
     <artifactId>beangle-scala</artifactId>
-    <version>25.0</version>
+    <version>28.0</version>
   </parent>
   <groupId>org.beangle.db</groupId>
-  <artifactId>beangle-db-parent_2.12</artifactId>
+  <artifactId>beangle-db-parent_2.13</artifactId>
   <packaging>pom</packaging>
-  <version>0.0.5</version>
+  <version>0.0.6</version>
   <name>Beangle DB Parent</name>
 
   <properties>
-    <commons.version>5.1.2</commons.version>
-    <data.version>5.0.8</data.version>
-    <beangle.template.version>0.0.22</beangle.template.version>
-    <HikariCP.version>3.2.0</HikariCP.version>
+    <commons.version>5.2.0</commons.version>
+    <data.version>5.3.11</data.version>
+    <beangle.template.version>0.0.28</beangle.template.version>
+    <HikariCP.version>3.4.5</HikariCP.version>
     <umlgraph.version>5.6.6</umlgraph.version>
   </properties>
 
   <modules>
     <module>report</module>
-    <module>conversion</module>
+    <module>transport</module>
     <module>lint</module>
   </modules>
 
@@ -47,12 +47,12 @@
     <dependencies>
       <dependency>
         <groupId>org.beangle.commons</groupId>
-        <artifactId>beangle-commons-core_2.12</artifactId>
+        <artifactId>beangle-commons-core_2.13</artifactId>
         <version>${commons.version}</version>
       </dependency>
       <dependency>
         <groupId>org.beangle.data</groupId>
-        <artifactId>beangle-data-jdbc_2.12</artifactId>
+        <artifactId>beangle-data-jdbc_2.13</artifactId>
         <version>${data.version}</version>
       </dependency>
       <dependency>
@@ -78,7 +78,7 @@
     </dependency>
     <dependency>
       <groupId>org.beangle.data</groupId>
-      <artifactId>beangle-data-jdbc_2.12</artifactId>
+      <artifactId>beangle-data-jdbc_2.13</artifactId>
     </dependency>
  </dependencies>
 </project>

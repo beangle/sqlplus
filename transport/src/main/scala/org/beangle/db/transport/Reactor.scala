@@ -16,21 +16,20 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion
+package org.beangle.db.transport
 
 import java.io.FileInputStream
 
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.DataSourceUtils
-import org.beangle.data.jdbc.meta.{ Constraint, Table }
-import org.beangle.db.conversion.schema.{ ConstraintConverter, IndexConverter, SchemaWrapper, SequenceConverter, TableConverter }
-
-import Config.Source
+import org.beangle.data.jdbc.meta.{Constraint, Table}
+import org.beangle.db.transport.Config.Source
+import org.beangle.db.transport.schema._
 
 object Reactor extends Logging {
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     if (args.length < 1) {
       println("Usage: Reactor /path/to/your/conversion.xml");
       return
@@ -74,7 +73,7 @@ class Reactor(val config: Config) {
     sequences foreach { n =>
       n.schema = config.target.getSchema
       n.toCase(config.source.sequence.lowercase)
-      n.attach(config.target.dialect.engine)
+      n.attach(config.target.engine)
     }
     sequenceConverter.addAll(sequences)
     converters += sequenceConverter
@@ -92,12 +91,12 @@ class Reactor(val config: Config) {
     val tablePairs = Collections.newMap[String, Tuple2[Table, Table]]
 
     for (srcTable <- tables) {
-      var targetTable = srcTable.clone()
+      val targetTable = srcTable.clone()
       targetTable.updateSchema(targetWrapper.schema)
       if (source.table.lowercase) {
         targetTable.toCase(true)
       }
-      targetTable.attach(targetWrapper.dialect.engine)
+      targetTable.attach(targetWrapper.engine)
       tablePairs.put(targetTable.name.toString, (srcTable -> targetTable))
     }
     tablePairs.values.toList

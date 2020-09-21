@@ -18,7 +18,6 @@
  */
 package org.beangle.db.report.model
 
-import scala.Array.canBuildFrom
 
 import org.beangle.data.jdbc.meta.Table
 import org.beangle.commons.lang.Strings
@@ -36,8 +35,9 @@ trait TableContainer {
   }
 
   def contains(tableName: String): Boolean = {
-    tables.exists(t => t.name.toCase(true) == tableName)
+    tables.exists(t => t.name.toCase(true).value == tableName)
   }
+
   def addTable(table: Table): Unit = {
     tables += table
   }
@@ -46,7 +46,7 @@ trait TableContainer {
 class Image(val name: String, val title: String, tableseq: String, val description: String) extends TableContainer {
   override val patterns = Strings.split(tableseq.toLowerCase, ",").map(new AntPathPattern(_))
 
-  def select(alltables: collection.Iterable[Table]) {
+  def select(alltables: collection.Iterable[Table]): Unit = {
     for (table <- alltables) {
       if (matches(table.name.value)) addTable(table)
     }
@@ -80,7 +80,7 @@ class Module(val name: String, val title: String, tableseq: String) extends Tabl
   override def matches(tableName: String): Boolean = {
     parent match {
       case Some(pm) => pm.matches(tableName) && super.matches(tableName)
-      case None     => super.matches(tableName)
+      case None => super.matches(tableName)
     }
   }
 
@@ -91,7 +91,7 @@ class Module(val name: String, val title: String, tableseq: String) extends Tabl
     buf.toList
   }
 
-  def filter(alltables: collection.mutable.Set[Table]) {
+  def filter(alltables: collection.mutable.Set[Table]): Unit = {
     for (module <- children) module.filter(alltables)
     for (table <- alltables) if (matches(table.name.value)) addTable(table)
     alltables --= tables

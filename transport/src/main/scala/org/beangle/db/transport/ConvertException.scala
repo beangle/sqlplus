@@ -16,15 +16,15 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.beangle.db.conversion
+package org.beangle.db.transport
 
 class ConvertException(message: String, cause: Throwable) extends RuntimeException(message, cause) {
 
-  def this(message: String) {
+  def this(message: String) = {
     this(message, null);
   }
 
-  def this(cause: Throwable) {
+  def this(cause: Throwable) = {
     this(null, cause);
   }
 
