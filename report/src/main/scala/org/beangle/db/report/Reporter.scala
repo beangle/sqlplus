@@ -18,21 +18,19 @@
  */
 package org.beangle.db.report
 
-import java.io.{BufferedReader, File, FileInputStream, InputStreamReader}
+import java.io.{BufferedReader, File, InputStreamReader}
 import java.util.Locale
-
-import org.beangle.commons.collection.Collections
-import org.beangle.commons.io.Files.{/, forName, stringWriter}
-import org.beangle.commons.lang.ClassLoaders
-import org.beangle.commons.lang.Strings.{isEmpty, substringAfterLast, substringBefore, substringBeforeLast}
-import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.ds.DataSourceUtils
-import org.beangle.data.jdbc.meta.{Database, MetadataLoader, Schema, Table}
-import org.beangle.db.report.model.{Module, Report}
-import org.beangle.template.freemarker.BeangleObjectWrapper
 
 import freemarker.cache.{ClassTemplateLoader, FileTemplateLoader, MultiTemplateLoader}
 import freemarker.template.Configuration
+import org.beangle.commons.collection.Collections
+import org.beangle.commons.io.Files.{/, forName, stringWriter}
+import org.beangle.commons.lang.Strings.{isEmpty, substringAfterLast, substringBefore, substringBeforeLast}
+import org.beangle.commons.lang.{ClassLoaders, Strings}
+import org.beangle.commons.logging.Logging
+import org.beangle.data.jdbc.meta.Table
+import org.beangle.db.report.model.{Module, Report}
+import org.beangle.template.freemarker.BeangleObjectWrapper
 
 object MultiReport extends Logging {
   def main(args: Array[String]): Unit = {
@@ -48,7 +46,12 @@ object MultiReport extends Logging {
     dir.listFiles() foreach { f =>
       if (f.isDirectory()) xmls ++= findReportXML(f)
       else {
-        if (f.getName.endsWith(".xml") && f.getName !="database.xml") xmls += f.getAbsolutePath
+        if (f.getName.endsWith(".xml") && f.getName != "database.xml") {
+          val f_dir = Strings.substringBeforeLast(f.getAbsolutePath, ".xml")
+          if (new File(f_dir).exists() && new File(f_dir).isDirectory) {
+            xmls += f.getAbsolutePath
+          }
+        }
       }
     }
     xmls.toList
@@ -135,7 +138,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
 
   val database = report.database.getOrCreateSchema(report.schemaName)
 
-  def filterTables() :Unit={
+  def filterTables(): Unit = {
     val lastTables = new collection.mutable.HashSet[Table]
     lastTables ++= database.tables.values
     for (module <- report.modules) module.filter(lastTables)
