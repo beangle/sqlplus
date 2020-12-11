@@ -35,7 +35,9 @@ object Reactor extends Logging {
       return
     }
     val xml = scala.xml.XML.load(new FileInputStream(args(0)))
-    new Reactor(Config(xml)).start()
+    val reactor = new Reactor(Config(xml))
+    reactor.start()
+    reactor.close()
   }
 }
 
@@ -80,7 +82,9 @@ class Reactor(val config: Config) {
 
     for (converter <- converters)
       converter.start()
+  }
 
+  def close(): Unit = {
     //cleanup
     DataSourceUtils.close(config.source.dataSource)
     DataSourceUtils.close(config.target.dataSource)

@@ -162,9 +162,9 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
               insert(targetTable, data, curr, count)
             }
           } catch {
-            case e: Exception =>
-              dataIter.close()
-              logger.error(s"Insert error ${targetTable.qualifiedName}", e)
+            case e: Exception => logger.error(s"Insert error ${targetTable.qualifiedName}", e)
+          } finally {
+            dataIter.close()
           }
         }
       } catch {
