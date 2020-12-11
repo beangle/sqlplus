@@ -20,7 +20,6 @@ package org.beangle.db.transport.schema
 
 import java.sql.Connection
 
-import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import org.beangle.commons.io.IOs
 import org.beangle.commons.logging.Logging
