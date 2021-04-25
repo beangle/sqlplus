@@ -46,11 +46,24 @@
         <configuration>
           <archive>
             <manifest>
-              <addClasspath>true</addClasspath>
               <mainClass>org.beangle.db.report.Reporter</mainClass>
             </manifest>
           </archive>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.beangle.maven</groupId>
+        <artifactId>beangle-maven-plugin</artifactId>
+        <version>0.3.31</version>
+        <executions>
+          <execution>
+            <id>generate</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>dependencies</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

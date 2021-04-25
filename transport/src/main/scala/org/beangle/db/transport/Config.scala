@@ -18,18 +18,23 @@
  */
 package org.beangle.db.transport
 
-import javax.sql.DataSource
 import org.beangle.commons.lang.{Numbers, Strings}
+import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.data.jdbc.engine.Engine
-import org.beangle.data.jdbc.ds.DataSourceUtils
 import org.beangle.data.jdbc.meta.{Database, Identifier, Schema}
 import org.beangle.db.transport.schema.SchemaWrapper
+
+import javax.sql.DataSource
 
 object Config {
 
   def apply(xml: scala.xml.Elem): Config = {
-    new Config(Config.source(xml), Config.target(xml), Config.maxtheads(xml),
+    val config = new Config(Config.source(xml), Config.target(xml), Config.maxtheads(xml),
       Config.bulkSize(xml), Config.datarange(xml), Config.model(xml))
+
+    config.beforeActions = beforeAction(xml)
+    config.afterActions = afterAction(xml)
+    config
   }
 
   private def model(xml: scala.xml.Elem): ConversionModel.Value = {
@@ -64,7 +69,7 @@ object Config {
   private def source(xml: scala.xml.Elem): Source = {
     val dbconf = DataSourceUtils.parseXml((xml \\ "source").head)
 
-    val ds = DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
+    val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
     val source = new Source(dbconf.engine, ds)
     source.schema = dbconf.schema
     source.catalog = dbconf.catalog
@@ -88,10 +93,24 @@ object Config {
   private def target(xml: scala.xml.Elem): Target = {
     val dbconf = DataSourceUtils.parseXml((xml \\ "target").head)
 
-    val target = new Target(dbconf.engine, DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props))
+    val target = new Target(dbconf.engine, DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props))
     target.schema = dbconf.schema
     target.catalog = dbconf.catalog
     target
+  }
+
+  private def beforeAction(xml: scala.xml.Elem): Iterable[ActionConfig] = {
+    val actions = (xml \\ "actions" \\ "before" \\ "sql")
+    actions.map { x =>
+      ActionConfig("script", Map("file" -> (x \ "@file").text))
+    }
+  }
+
+  private def afterAction(xml: scala.xml.Elem): Iterable[ActionConfig] = {
+    val actions = (xml \\ "actions" \\ "after" \\ "sql")
+    actions.map { x =>
+      ActionConfig("script", Map("file" -> (x \ "@file").text))
+    }
   }
 
   final class TableConfig {
@@ -140,8 +159,11 @@ object Config {
 
 class Config(val source: Config.Source, val target: Config.Target, val maxthreads: Int,
              val bulkSize: Int,
-             val dataRange: Tuple2[Int, Int],
+             val dataRange: (Int, Int),
              val conversionModel: ConversionModel.Value) {
+
+  var beforeActions: Iterable[ActionConfig] = _
+  var afterActions: Iterable[ActionConfig] = _
 }
 
 object ConversionModel extends Enumeration(1) {

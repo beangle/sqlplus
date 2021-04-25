@@ -18,14 +18,14 @@
  */
 package org.beangle.db.transport
 
-import java.io.FileInputStream
-
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.DataSourceUtils
 import org.beangle.data.jdbc.meta.{Constraint, Table}
 import org.beangle.db.transport.Config.Source
 import org.beangle.db.transport.schema._
+
+import java.io.FileInputStream
 
 object Reactor extends Logging {
 
@@ -41,11 +41,18 @@ object Reactor extends Logging {
   }
 }
 
-class Reactor(val config: Config) {
+class Reactor(val config: Config) extends Logging {
   var sourceWrapper: SchemaWrapper = config.source.buildWrapper()
   var targetWrapper: SchemaWrapper = config.target.buildWrapper()
 
   def start() = {
+    config.beforeActions foreach { acf =>
+      acf.category match {
+        case "script" => new SqlAction(sourceWrapper.dataSource, acf.properties("file")).process()
+        case _ => logger.warn("Cannot support " + acf.category)
+      }
+    }
+
     val loadextra = config.source.table.withIndex || config.source.table.withConstraint
     sourceWrapper.loadMetas(loadextra, true)
     targetWrapper.loadMetas(loadextra, true)
@@ -80,8 +87,15 @@ class Reactor(val config: Config) {
     sequenceConverter.addAll(sequences)
     converters += sequenceConverter
 
-    for (converter <- converters)
+    for (converter <- converters) {
       converter.start()
+    }
+    config.afterActions foreach { acf =>
+      acf.category match {
+        case "script" => new SqlAction(targetWrapper.dataSource, acf.properties("file")).process()
+        case _ => logger.warn("Cannot support " + acf.category)
+      }
+    }
   }
 
   def close(): Unit = {
