@@ -18,7 +18,10 @@
  */
 package org.beangle.db.transport.schema
 
+import java.sql.Connection
+
 import javax.sql.DataSource
+import org.beangle.commons.io.IOs
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.engine.Engine
 import org.beangle.data.jdbc.meta.{MetadataLoader, Schema, Sequence, Table}
@@ -28,11 +31,17 @@ import org.beangle.db.transport.DataWrapper
 class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: Schema)
   extends DataWrapper with Logging {
   val executor = new JdbcExecutor(dataSource)
-  val loader = new MetadataLoader(dataSource.getConnection.getMetaData, engine)
 
   def loadMetas(loadTableExtra: Boolean, loadSequence: Boolean): Unit = {
-    loader.loadTables(schema, loadTableExtra)
-    if (loadSequence) loader.loadSequences(schema)
+    var conn: Connection = null
+    try {
+      conn = dataSource.getConnection
+      val loader = new MetadataLoader(conn.getMetaData, engine)
+      loader.loadTables(schema, loadTableExtra)
+      if (loadSequence) loader.loadSequences(schema)
+    } finally {
+      IOs.close(conn)
+    }
   }
 
   override def has(table: Table): Boolean = {

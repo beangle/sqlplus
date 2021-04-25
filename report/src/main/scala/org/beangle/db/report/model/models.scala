@@ -18,7 +18,6 @@
  */
 package org.beangle.db.report.model
 
-
 import org.beangle.data.jdbc.meta.Table
 import org.beangle.commons.lang.Strings
 import org.beangle.commons.regex.AntPathPattern

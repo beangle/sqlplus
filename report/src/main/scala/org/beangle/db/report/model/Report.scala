@@ -19,11 +19,10 @@
 package org.beangle.db.report.model
 
 import java.io.{File, FileInputStream}
-
 import org.beangle.commons.bean.Initializing
 import org.beangle.commons.io.Files
 import org.beangle.commons.lang.Strings
-import org.beangle.data.jdbc.ds.DataSourceUtils
+import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.data.jdbc.meta._
 
 object Report {
@@ -36,7 +35,7 @@ object Report {
     if ((xml \ "db").nonEmpty) {
       val dbconf = DataSourceUtils.parseXml(xml)
       database = new Database(dbconf.engine)
-      val ds = DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
+      val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
       val schema = new Schema(database, dbconf.schema)
 
       val meta = ds.getConnection().getMetaData()

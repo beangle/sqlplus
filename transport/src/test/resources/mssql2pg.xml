@@ -10,8 +10,8 @@
       <props>
         <prop name="connectionTestQuery" value="select * from [studb].[dbo].[T_YEAR_TERM]"/>
       </props>
+      <tables/>
   </source>
-  <tables/>
   <target>
     <db>
       <driver>postgresql</driver>
@@ -21,4 +21,12 @@
       <schema>demo</schema>
     </db>
   </target>
+  <actions>
+    <before>
+      <sql file="/path/to/init.sql"/>
+    </before>
+    <after>
+      <sql file="/path/to/process.sql"/>
+    </after>
+  </actions>
 </conversion>
