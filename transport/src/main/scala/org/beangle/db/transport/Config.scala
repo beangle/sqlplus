@@ -67,8 +67,7 @@ object Config {
   }
 
   private def source(xml: scala.xml.Elem): Source = {
-    val dbconf = DataSourceUtils.parseXml((xml \\ "source").head)
-
+    val dbconf = DataSourceUtils.parseXml((xml \\ "source" \\ "db").head)
     val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
     val source = new Source(dbconf.engine, ds)
     source.schema = dbconf.schema
@@ -91,7 +90,7 @@ object Config {
   }
 
   private def target(xml: scala.xml.Elem): Target = {
-    val dbconf = DataSourceUtils.parseXml((xml \\ "target").head)
+    val dbconf = DataSourceUtils.parseXml((xml \\ "target" \\ "db").head)
 
     val target = new Target(dbconf.engine, DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props))
     target.schema = dbconf.schema
