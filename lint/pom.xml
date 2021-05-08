@@ -1,11 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.or">
   <parent>
     <groupId>org.beangle.db</groupId>
-    <artifactId>beangle-db-parent_2.13</artifactId>
-    <version>0.0.9-SNAPSHOT</version>
+    <artifactId>beangle-db-parent</artifactId>
+    <version>0.0.9</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>beangle-db-lint_2.13</artifactId>
+  <artifactId>beangle-db-lint</artifactId>
   <packaging>jar</packaging>
   <name>Beangle DB Lint</name>
 
