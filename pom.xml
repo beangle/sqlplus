@@ -6,9 +6,9 @@
     <version>28.2</version>
   </parent>
   <groupId>org.beangle.db</groupId>
-  <artifactId>beangle-db-parent_2.13</artifactId>
+  <artifactId>beangle-db-parent</artifactId>
   <packaging>pom</packaging>
-  <version>0.0.9-SNAPSHOT</version>
+  <version>0.0.9</version>
   <name>Beangle DB Parent</name>
 
   <properties>
@@ -18,6 +18,10 @@
     <HikariCP.version>4.0.3</HikariCP.version>
     <umlgraph.version>5.6.6</umlgraph.version>
     <postgresql.version>42.2.20</postgresql.version>
+    <jtds.version>1.3.1</jtds.version>
+    <ojdbc.version>21.1.0.0</ojdbc.version>
+    <mysql.version>8.0.24</mysql.version>
+    <mssql.version>9.2.1.jre11</mssql.version>
   </properties>
 
   <modules>
