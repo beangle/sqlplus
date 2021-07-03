@@ -96,7 +96,7 @@ object Reporter extends Logging {
   def gen(reporter: Reporter): Unit = {
     try {
       reporter.genWiki()
-      //reporter.genImages()
+      reporter.genImages()
       logger.info("report generate complete.")
     } catch {
       case e: Exception => e.printStackTrace
@@ -177,14 +177,14 @@ class Reporter(val report: Report, val dir: String) extends Logging {
   def genImages(): Unit = {
     if (report.images.isEmpty) return
 
-    if (!Reporter.DotReady) {
-      logger.warn(
-        """
-Cannot find dot command. images generation skipped.
-dot is a tool to generate nice-looking diagrams with a minimum of effort. It's part of GraphViz.
-see http://www.graphviz.org/doc/info/lang.html and http://www.linuxdevcenter.com/pub/a/linux/2004/05/06/graphviz_dot.html""")
-      return
-    }
+//    if (!Reporter.DotReady) {
+//      logger.warn(
+//        """
+//Cannot find dot command. images generation skipped.
+//dot is a tool to generate nice-looking diagrams with a minimum of effort. It's part of GraphViz.
+//see http://www.graphviz.org/doc/info/lang.html and http://www.linuxdevcenter.com/pub/a/linux/2004/05/06/graphviz_dot.html""")
+//      return
+//    }
 
     val data = new collection.mutable.HashMap[String, Any]()
     data += ("database" -> database)
@@ -213,8 +213,8 @@ see http://www.graphviz.org/doc/info/lang.html and http://www.linuxdevcenter.com
     val freemarkerTemplate = cfg.getTemplate("class.ftl")
     freemarkerTemplate.process(data, fw)
     fw.close()
-    java2png(javafile)
-    javafile.deleteOnExit()
+    //java2png(javafile)
+    //javafile.deleteOnExit()
   }
 
   private def java2png(javafile: File): Unit = {

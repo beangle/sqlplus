@@ -26,13 +26,11 @@
       <artifactId>postgresql</artifactId>
       <optional>true</optional>
     </dependency>
-    <!--
     <dependency>
-      <groupId>org.umlgraph</groupId>
-      <artifactId>umlgraph</artifactId>
-      <version>${umlgraph.version}</version>
+      <groupId>net.sourceforge.plantuml</groupId>
+      <artifactId>plantuml</artifactId>
+      <version>${plantuml.version}</version>
     </dependency>
-    -->
     <dependency>
       <groupId>com.zaxxer</groupId>
       <artifactId>HikariCP</artifactId>
