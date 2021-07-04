@@ -13,7 +13,7 @@
 
   <properties>
     <commons.version>5.2.3</commons.version>
-    <data.version>5.3.22</data.version>
+    <data.version>5.3.24-SNAPSHOT</data.version>
     <beangle.template.version>0.0.31</beangle.template.version>
     <HikariCP.version>4.0.3</HikariCP.version>
     <plantuml.version>1.2021.8</plantuml.version>

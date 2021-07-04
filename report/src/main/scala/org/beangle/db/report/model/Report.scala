@@ -18,12 +18,13 @@
  */
 package org.beangle.db.report.model
 
-import java.io.{File, FileInputStream}
 import org.beangle.commons.bean.Initializing
 import org.beangle.commons.io.Files
 import org.beangle.commons.lang.Strings
 import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.data.jdbc.meta._
+
+import java.io.{File, FileInputStream}
 
 object Report {
 
@@ -32,6 +33,7 @@ object Report {
     val dir = new File(reportXml).getParent
     var database: Database = null
     var schemaName: String = null
+    var subSystem: String = null
     if ((xml \ "db").nonEmpty) {
       val dbconf = DataSourceUtils.parseXml(xml)
       database = new Database(dbconf.engine)
@@ -47,6 +49,7 @@ object Report {
     } else {
       val databaseXml = (xml \ "database" \ "@xml").text
       schemaName = (xml \ "database" \ "@schema").text
+      subSystem = (xml \ "database" \ "@subSystem").text
       database = Serializer.fromXml(Files.readString(new File(dir + Files./ + databaseXml)))
     }
     val report = new Report(database, schemaName)
@@ -55,20 +58,27 @@ object Report {
     report.system.version = (xml \ "system" \ "@version").text
     (xml \ "system" \ "props" \ "prop").foreach { ele => report.system.properties.put((ele \ "@name").text, (ele \ "@value").text) }
 
-    (xml \ "modules" \ "module").foreach { ele => parseModule(ele, report, None) }
+    (xml \ "modules" \ "module").foreach { ele => parseModule(ele, report, subSystem, None) }
     (xml \ "pages" \ "page").foreach { ele =>
-      report.addPage(
-        new Page((ele \ "@name").text, (ele \ "@iterable").text == "true"))
+      report.addPage(Page((ele \ "@name").text, (ele \ "@iterable").text == "true"))
     }
     report.template = (xml \ "pages" \ "@template").text
     report.extension = (xml \ "pages" \ "@extension").text
     report.imageurl = (xml \ "pages" \ "@imageurl").text
+    report.subSystem = subSystem
     report.init()
     report
   }
 
-  def parseModule(node: scala.xml.Node, report: Report, parent: Option[Module]): Unit = {
-    val module = new Module((node \ "@name").text, (node \ "@title").text, (node \ "@tables").text)
+  def parseModule(node: scala.xml.Node, report: Report, subSystem: String, parent: Option[Module]): Unit = {
+    val name = (node \ "@name").text
+    var tables = (node \ "@tables").text
+    var moduleCode = subSystem
+    if (Strings.isBlank(tables)) {
+      tables = "@MODULE"
+      moduleCode = if (null != subSystem) subSystem + "." + name else name
+    }
+    val module = new Module(name, (node \ "@title").text, tables, moduleCode)
     (node \ "image").foreach { ele =>
       module.addImage(
         new Image((ele \ "@name").text, (ele \ "@title").text, (ele \ "@tables").text, ele.text.trim))
@@ -78,7 +88,7 @@ object Report {
       case Some(p) => p.addModule(module)
     }
 
-    (node \ "module").foreach { ele => parseModule(ele, report, Some(module)) }
+    (node \ "module").foreach { ele => parseModule(ele, report, subSystem, Some(module)) }
   }
 }
 
@@ -88,6 +98,8 @@ class Report(val database: Database, val schemaName: String) extends Initializin
 
   var system: System = new System
 
+  var module: Option[String] = None
+
   var modules: List[Module] = List()
 
   var pages: List[Page] = List()
@@ -95,6 +107,8 @@ class Report(val database: Database, val schemaName: String) extends Initializin
   var template: String = _
 
   var imageurl: String = _
+
+  var subSystem: String = _
 
   var extension: String = _
 

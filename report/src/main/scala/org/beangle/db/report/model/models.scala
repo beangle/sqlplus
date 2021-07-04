@@ -18,9 +18,9 @@
  */
 package org.beangle.db.report.model
 
-import org.beangle.data.jdbc.meta.Table
 import org.beangle.commons.lang.Strings
 import org.beangle.commons.regex.AntPathPattern
+import org.beangle.data.jdbc.meta.{Identifier, Table}
 
 case class Page(val name: String, val iterable: Boolean)
 
@@ -28,13 +28,13 @@ trait TableContainer {
   val patterns: Array[AntPathPattern]
   val tables = new collection.mutable.ListBuffer[Table]
 
-  def matches(tableName: String): Boolean = {
-    val lowertable = tableName.toLowerCase
+  def matches(table: Table): Boolean = {
+    val lowertable = table.name.value.toLowerCase
     patterns.exists(p => p.matches(lowertable))
   }
 
-  def contains(tableName: String): Boolean = {
-    tables.exists(t => t.name.toCase(true).value == tableName)
+  def contains(tableName: Identifier): Boolean = {
+    tables.exists(t => t.name.toCase(true) == tableName)
   }
 
   def addTable(table: Table): Unit = {
@@ -47,13 +47,13 @@ class Image(val name: String, val title: String, tableseq: String, val descripti
 
   def select(alltables: collection.Iterable[Table]): Unit = {
     for (table <- alltables) {
-      if (matches(table.name.value)) addTable(table)
+      if (matches(table)) addTable(table)
     }
   }
 }
 
-class Module(val name: String, val title: String, tableseq: String) extends TableContainer {
-  val content = new StringBuffer();
+class Module(val name: String, val title: String, tableseq: String, moduleCode: String) extends TableContainer {
+  val content = new StringBuffer()
   override val patterns = Strings.split(tableseq.toLowerCase, ",").map(new AntPathPattern(_))
   var children: List[Module] = List.empty
   var images: List[Image] = List.empty
@@ -76,11 +76,28 @@ class Module(val name: String, val title: String, tableseq: String) extends Tabl
     module.parent = Some(this)
   }
 
-  override def matches(tableName: String): Boolean = {
-    parent match {
-      case Some(pm) => pm.matches(tableName) && super.matches(tableName)
-      case None => super.matches(tableName)
+  override def matches(table: Table): Boolean = {
+    if (null != moduleCode) {
+      if (tableseq == "@MODULE") {
+        table.module exists (m => m == moduleCode)
+      } else {
+        val inmodule = table.module exists (m => m.startsWith(moduleCode))
+        if (inmodule) {
+          parent match {
+            case Some(pm) => pm.matches(table) && super.matches(table)
+            case None => super.matches(table)
+          }
+        } else {
+          false
+        }
+      }
+    } else {
+      parent match {
+        case Some(pm) => pm.matches(table) && super.matches(table)
+        case None => super.matches(table)
+      }
     }
+
   }
 
   def allImages: List[Image] = {
@@ -92,7 +109,7 @@ class Module(val name: String, val title: String, tableseq: String) extends Tabl
 
   def filter(alltables: collection.mutable.Set[Table]): Unit = {
     for (module <- children) module.filter(alltables)
-    for (table <- alltables) if (matches(table.name.value)) addTable(table)
+    for (table <- alltables) if (matches(table)) addTable(table)
     alltables --= tables
   }
 }
