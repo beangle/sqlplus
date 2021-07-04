@@ -168,9 +168,19 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     data += ("schema" -> schema)
     data += ("report" -> report)
 
-    for (image <- report.images) {
+    report.images foreach { image =>
       data.put("image", image)
-      genImage(data, image.name)
+      val javafile = new File(dir + "images" + / + image.name + ".java")
+      javafile.getParentFile.mkdirs()
+      val fw = stringWriter(javafile)
+      val freemarkerTemplate = cfg.getTemplate("image.ftl")
+      freemarkerTemplate.process(data, fw)
+      fw.close()
+    }
+    Run.main(Array(dir + "images/"))
+    report.images foreach { image =>
+      val javafile = new File(dir + "images" + / + image.name + ".java")
+      javafile.delete()
     }
   }
 
@@ -184,14 +194,4 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     fw.close()
   }
 
-  private def genImage(data: Any, result: String): Unit = {
-    val javafile = new File(dir + "images" + / + result + ".java")
-    javafile.getParentFile().mkdirs()
-    val fw = stringWriter(javafile)
-    val freemarkerTemplate = cfg.getTemplate("image.ftl")
-    freemarkerTemplate.process(data, fw)
-    fw.close()
-    Run.main(Array(javafile.getAbsolutePath))
-    javafile.delete()
-  }
 }

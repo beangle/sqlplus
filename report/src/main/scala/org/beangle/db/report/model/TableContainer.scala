@@ -18,14 +18,24 @@
  */
 package org.beangle.db.report.model
 
-import org.beangle.commons.lang.Strings
 import org.beangle.commons.regex.AntPathPattern
 import org.beangle.data.jdbc.meta.{Identifier, Table}
 
-case class Page(val name: String, val iterable: Boolean)
 
-class System {
-  var name: String = _
-  var version: String = _
-  val properties = new java.util.Properties
+trait TableContainer {
+  val patterns: Array[AntPathPattern]
+  val tables = new collection.mutable.ListBuffer[Table]
+
+  def matches(table: Table): Boolean = {
+    val lowertable = table.name.value.toLowerCase
+    patterns.exists(p => p.matches(lowertable))
+  }
+
+  def contains(tableName: Identifier): Boolean = {
+    tables.exists(t => t.name.toCase(true) == tableName)
+  }
+
+  def addTable(table: Table): Unit = {
+    tables += table
+  }
 }

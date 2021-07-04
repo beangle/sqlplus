@@ -20,12 +20,14 @@ package org.beangle.db.report.model
 
 import org.beangle.commons.lang.Strings
 import org.beangle.commons.regex.AntPathPattern
-import org.beangle.data.jdbc.meta.{Identifier, Table}
+import org.beangle.data.jdbc.meta.Table
 
-case class Page(val name: String, val iterable: Boolean)
+class Image(val name: String, val title: String, tableseq: String, val description: String) extends TableContainer {
+  override val patterns = Strings.split(tableseq.toLowerCase, ",").map(new AntPathPattern(_))
 
-class System {
-  var name: String = _
-  var version: String = _
-  val properties = new java.util.Properties
+  def select(alltables: collection.Iterable[Table]): Unit = {
+    for (table <- alltables) {
+      if (matches(table)) addTable(table)
+    }
+  }
 }

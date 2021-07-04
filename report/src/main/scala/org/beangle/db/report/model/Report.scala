@@ -73,10 +73,10 @@ object Report {
   def parseModule(node: scala.xml.Node, report: Report, subSystem: String, parent: Option[Module]): Unit = {
     val name = (node \ "@name").text
     var tables = (node \ "@tables").text
-    var moduleCode = subSystem
+    var moduleCode = if (Strings.isNotEmpty(subSystem)) Some(subSystem) else None
     if (Strings.isBlank(tables)) {
       tables = "@MODULE"
-      moduleCode = if (null != subSystem) subSystem + "." + name else name
+      moduleCode = if (Strings.isNotEmpty(subSystem)) Some(subSystem + "." + name) else Some(name)
     }
     val module = new Module(name, (node \ "@title").text, tables, moduleCode)
     (node \ "image").foreach { ele =>
