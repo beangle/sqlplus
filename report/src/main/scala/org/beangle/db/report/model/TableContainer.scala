@@ -18,17 +18,32 @@
  */
 package org.beangle.db.report.model
 
+import org.beangle.commons.lang.Strings
 import org.beangle.commons.regex.AntPathPattern
 import org.beangle.data.jdbc.meta.{Identifier, Table}
 
+object TableContainer {
+  def buildPatterns(schema: String, tableSeq: String): Array[AntPathPattern] = {
+    val defaultSchema = if (null != schema) schema.toLowerCase() else ""
+    Strings.split(tableSeq.toLowerCase, ",").map { x =>
+      val tablePattern =
+        if (x.contains(".")) {
+        Strings.replace(x, ".", "_")
+      } else {
+        if (Strings.isBlank(defaultSchema)) x else s"${defaultSchema}_$x"
+      }
+      new AntPathPattern(tablePattern)
+    }
+  }
+}
 
 trait TableContainer {
   val patterns: Array[AntPathPattern]
   val tables = new collection.mutable.ListBuffer[Table]
 
   def matches(table: Table): Boolean = {
-    val lowertable = table.name.value.toLowerCase
-    patterns.exists(p => p.matches(lowertable))
+    val tableName = Strings.replace(table.qualifiedName, ".", "_").toLowerCase
+    patterns.exists(p => p.matches(tableName))
   }
 
   def contains(tableName: Identifier): Boolean = {

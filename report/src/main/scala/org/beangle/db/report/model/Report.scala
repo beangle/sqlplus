@@ -33,23 +33,23 @@ object Report {
     val dir = new File(reportXml).getParent
     var database: Database = null
     var schemaName: String = null
-    var subSystem: String = null
+    var packageName: String = null
     if ((xml \ "db").nonEmpty) {
       val dbconf = DataSourceUtils.parseXml(xml)
       database = new Database(dbconf.engine)
       val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
       val schema = new Schema(database, dbconf.schema)
 
-      val meta = ds.getConnection().getMetaData()
+      val meta = ds.getConnection().getMetaData
       val loader = new MetadataLoader(meta, dbconf.engine)
-      loader.loadTables(schema, true)
+      loader.loadTables(schema, extras = true)
       loader.loadSequences(schema)
       schemaName = dbconf.schema.value
       DataSourceUtils.close(ds)
     } else {
       val databaseXml = (xml \ "database" \ "@xml").text
       schemaName = (xml \ "database" \ "@schema").text
-      subSystem = (xml \ "database" \ "@subSystem").text
+      packageName = (xml \ "database" \ "@package").text
       database = Serializer.fromXml(Files.readString(new File(dir + Files./ + databaseXml)))
     }
     val report = new Report(database, schemaName)
@@ -58,37 +58,38 @@ object Report {
     report.system.version = (xml \ "system" \ "@version").text
     (xml \ "system" \ "props" \ "prop").foreach { ele => report.system.properties.put((ele \ "@name").text, (ele \ "@value").text) }
 
-    (xml \ "modules" \ "module").foreach { ele => parseModule(ele, report, subSystem, None) }
+    (xml \ "modules" \ "module").foreach { ele => parseModule(ele, report, packageName, None) }
     (xml \ "pages" \ "page").foreach { ele =>
       report.addPage(Page((ele \ "@name").text, (ele \ "@iterable").text == "true"))
     }
     report.template = (xml \ "pages" \ "@template").text
     report.extension = (xml \ "pages" \ "@extension").text
     report.imageurl = (xml \ "pages" \ "@imageurl").text
-    report.subSystem = subSystem
+    report.packageName = packageName
     report.init()
     report
   }
 
-  def parseModule(node: scala.xml.Node, report: Report, subSystem: String, parent: Option[Module]): Unit = {
+  def parseModule(node: scala.xml.Node, report: Report, packageName: String, parent: Option[Module]): Unit = {
     val name = (node \ "@name").text
     var tables = (node \ "@tables").text
-    var moduleCode = if (Strings.isNotEmpty(subSystem)) Some(subSystem) else None
+    var mp = Some(packageName).filter(Strings.isNotEmpty)
     if (Strings.isBlank(tables)) {
       tables = "@MODULE"
-      moduleCode = if (Strings.isNotEmpty(subSystem)) Some(subSystem + "." + name) else Some(name)
+      mp = if (Strings.isNotEmpty(packageName)) Some(packageName + "." + name) else Some(name)
     }
-    val module = new Module(name, (node \ "@title").text, tables, moduleCode)
+    val module = new Module(name, (node \ "@title").text, report.schemaName, mp, tables)
     (node \ "image").foreach { ele =>
       module.addImage(
-        new Image((ele \ "@name").text, (ele \ "@title").text, (ele \ "@tables").text, ele.text.trim))
+        new Image((ele \ "@name").text, (ele \ "@title").text, report.schemaName,
+          (ele \ "@tables").text, ele.text.trim))
     }
     parent match {
       case None => report.addModule(module)
       case Some(p) => p.addModule(module)
     }
 
-    (node \ "module").foreach { ele => parseModule(ele, report, subSystem, Some(module)) }
+    (node \ "module").foreach { ele => parseModule(ele, report, packageName, Some(module)) }
   }
 }
 
@@ -108,7 +109,7 @@ class Report(val database: Database, val schemaName: String) extends Initializin
 
   var imageurl: String = _
 
-  var subSystem: String = _
+  var packageName: String = _
 
   var extension: String = _
 

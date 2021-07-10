@@ -4,7 +4,7 @@ title ${image.title}
 [#assign referTables=[]]
 
 [#list image.tables as table]
-entity ${table.name.value?lower_case}{
+entity [@entityName table/]{
  * id
  --
 [#list table.foreignKeys as fk]
@@ -19,17 +19,11 @@ note "${table.comment!}" as ${table.name.value?lower_case}_comments
 
 [/#list]
 
-
-[#list referTables as table]
-entity [@entityName table/]  #line.dotted:blue
-note "${schema.database.getTable(table.schema.name.value,table.name.value).comment!}" as ${table.name.value?lower_case}_comments
-[@entityName table/] .. ${table.name.value?lower_case}_comments
-hide [@entityName table/] members
-[/#list]
-
 [#list image.tables as table]
   [#list table.foreignKeys as fk]
+    [#if image.contains(fk.referencedTable.name)]
    ${table.name.value?lower_case} }o--  [@entityName fk.referencedTable/]
+    [/#if]
   [/#list]
 [/#list]
 @enduml

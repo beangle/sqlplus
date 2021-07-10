@@ -20,7 +20,7 @@ package org.beangle.db.report
 
 import freemarker.cache.{ClassTemplateLoader, FileTemplateLoader, MultiTemplateLoader}
 import freemarker.template.Configuration
-import net.sourceforge.plantuml.Run
+import net.sourceforge.plantuml.{OptionFlags, Run}
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.Files.{/, stringWriter}
 import org.beangle.commons.lang.Strings
@@ -120,17 +120,17 @@ class Reporter(val report: Report, val dir: String) extends Logging {
   def filterTables(): Unit = {
     val lastTables = new collection.mutable.HashSet[Table]
     schema.tables.values foreach { t =>
-      if (null == report.subSystem) {
+      if (null == report.packageName) {
         lastTables += t
       } else {
         t.module foreach { m =>
-          if (m.startsWith(report.subSystem)) lastTables += t
+          if (m.startsWith(report.packageName)) lastTables += t
         }
       }
     }
     lastTables ++= schema.tables.values
     for (module <- report.modules) module.filter(lastTables)
-    for (image <- report.images) image.select(schema.tables.values)
+    for (image <- report.images) image.select(report.database)
     report.tables = schema.tables.values.filterNot(lastTables.contains(_))
   }
 
@@ -177,6 +177,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
       freemarkerTemplate.process(data, fw)
       fw.close()
     }
+    OptionFlags.getInstance().setSystemExit(false)
     Run.main(Array(dir + "images/"))
     report.images foreach { image =>
       val javafile = new File(dir + "images" + / + image.name + ".java")
@@ -187,7 +188,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
   private def render(data: collection.mutable.HashMap[String, Any], template: String, result: String = ""): Unit = {
     val wikiResult = if (isEmpty(result)) template else result;
     val file = new File(dir + wikiResult + report.extension)
-    file.getParentFile().mkdirs()
+    file.getParentFile.mkdirs()
     val fw = stringWriter(file)
     val freemarkerTemplate = cfg.getTemplate(report.template + "/" + template + ".ftl")
     freemarkerTemplate.process(data, fw)

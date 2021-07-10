@@ -18,16 +18,16 @@
  */
 package org.beangle.db.report.model
 
-import org.beangle.commons.lang.Strings
-import org.beangle.commons.regex.AntPathPattern
-import org.beangle.data.jdbc.meta.Table
+import org.beangle.data.jdbc.meta.Database
 
-class Image(val name: String, val title: String, tableseq: String, val description: String) extends TableContainer {
-  override val patterns = Strings.split(tableseq.toLowerCase, ",").map(new AntPathPattern(_))
+class Image(val name: String, val title: String, schema: String, tableseq: String, val description: String) extends TableContainer {
+  override val patterns = TableContainer.buildPatterns(schema, tableseq)
 
-  def select(alltables: collection.Iterable[Table]): Unit = {
-    for (table <- alltables) {
-      if (matches(table)) addTable(table)
+  def select(database: Database): Unit = {
+    for (schema <- database.schemas.values) {
+      for (table <- schema.tables.values) {
+        if (matches(table)) addTable(table)
+      }
     }
   }
 }

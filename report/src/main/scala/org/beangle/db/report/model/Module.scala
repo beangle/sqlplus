@@ -18,13 +18,12 @@
  */
 package org.beangle.db.report.model
 
-import org.beangle.commons.lang.Strings
-import org.beangle.commons.regex.AntPathPattern
 import org.beangle.data.jdbc.meta.Table
 
-class Module(val name: String, val title: String, tableseq: String, moduleCode: Option[String]) extends TableContainer {
+class Module(val name: String, val title: String, schema: String, packageName: Option[String], tableseq: String)
+  extends TableContainer {
   val content = new StringBuffer()
-  override val patterns = Strings.split(tableseq.toLowerCase, ",").map(new AntPathPattern(_))
+  override val patterns = TableContainer.buildPatterns(schema, tableseq)
   var children: List[Module] = List.empty
   var images: List[Image] = List.empty
   var parent: Option[Module] = None
@@ -47,8 +46,8 @@ class Module(val name: String, val title: String, tableseq: String, moduleCode: 
   }
 
   override def matches(table: Table): Boolean = {
-    if (moduleCode.isDefined) {
-      val prefix = moduleCode.get
+    if (packageName.isDefined) {
+      val prefix = packageName.get
       if (tableseq == "@MODULE") {
         table.module contains prefix
       } else {
