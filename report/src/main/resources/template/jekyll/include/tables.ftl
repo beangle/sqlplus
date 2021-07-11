@@ -17,11 +17,11 @@ Schema ${module.schema.name}[#if module.name??].${module.name}[/#if]下共计${t
   <tr>
     [#assign table= sortedTables[i-1] /]
     <td>${i}</td>
-    <td><a href="${module.findGroup(table).absolutePath!"error"}.html#表格-${table.name.value}-${table.comment!}">${table.name.value?lower_case}</a> ${table.comment!}</td>
+    <td><a href="${report.tableUrl(table)}">${table.name.value?lower_case}</a> ${table.comment!}</td>
     [#if tables[i-1+tabcnt]??]
     [#assign table= sortedTables[i-1+tabcnt] /]
     <td>${i+tabcnt}</td>
-    <td><a href="${module.findGroup(table).absolutePath!"error"}.html#表格-${table.name.value}-${table.comment!}">${table.name.value?lower_case}</a> ${table.comment!}</td>
+    <td><a href="${report.tableUrl(table)}">${table.name.value?lower_case}</a> ${table.comment!}</td>
     [#else]
     <td></td>
     <td></td>

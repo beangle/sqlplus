@@ -19,8 +19,10 @@
 package org.beangle.db.report.model
 
 import org.beangle.commons.bean.Initializing
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.Files
 import org.beangle.commons.lang.Strings
+import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.data.jdbc.meta._
 import org.beangle.db.report.model.{Schema => ReportSchema}
@@ -50,13 +52,13 @@ object Report {
     }
     val report = new Report(database)
     report.title = (xml \ "@title").text
-    report.contentPath = (xml \ "@contentPath").text
+    report.contextPath = (xml \ "@contextPath").text
     report.system.name = (xml \ "system" \ "@name").text
     report.system.version = (xml \ "system" \ "@version").text
     (xml \ "system" \ "props" \ "prop").foreach { ele => report.system.properties.put((ele \ "@name").text, (ele \ "@value").text) }
 
     (xml \ "schemas" \ "schema").foreach { ele =>
-      val schema = new ReportSchema((ele \ "@name").text, (ele \ "@title").text,report)
+      val schema = new ReportSchema((ele \ "@name").text, (ele \ "@title").text, report)
       report.addSchema(schema)
       (ele \ "module") foreach { ele =>
         val n = (ele \ "@name").text
@@ -99,7 +101,7 @@ object Report {
   }
 }
 
-class Report(val database: Database) extends Initializing {
+class Report(val database: Database) extends Initializing with Logging {
 
   var title: String = _
 
@@ -107,7 +109,7 @@ class Report(val database: Database) extends Initializing {
 
   var schemas: List[ReportSchema] = List()
 
-  var contentPath: String = ""
+  var contextPath: String = ""
 
   var pages: List[Page] = List()
 
@@ -117,12 +119,38 @@ class Report(val database: Database) extends Initializing {
 
   var extension: String = _
 
+  val table2Group = Collections.newMap[Table, Group]
+
   def addSchema(schema: ReportSchema): Unit = {
     schemas :+= schema
   }
 
   def addPage(page: Page): Unit = {
     pages :+= page
+  }
+
+  def build(): Unit = {
+    for (s <- schemas; m <- s.modules; g <- m.groups; t <- g.tables) {
+      table2Group.put(t, g)
+    }
+  }
+
+  def refTableUrl(tableRef: TableRef): String = {
+    database.getTable(tableRef) match {
+      case None => logger.warn("Cannot find group of [" + tableRef.qualifiedName + "]"); "error"
+      case Some(t) =>
+        table2Group.get(t) match {
+          case None => logger.warn("Cannot find group of [" + tableRef.qualifiedName + "]"); ""
+          case Some(g) => contextPath + g.path + s".html#表格-${tableRef.name.value}-${t.comment.getOrElse("")}"
+        }
+    }
+  }
+
+  def tableUrl(table: Table): String = {
+    table2Group.get(table) match {
+      case None => logger.warn("Cannot find group of [" + table.qualifiedName + "]"); "error"
+      case Some(g) => contextPath + g.path + s".html#表格-${table.name.value}-${table.comment.getOrElse("")}"
+    }
   }
 
   def init(): Unit = {

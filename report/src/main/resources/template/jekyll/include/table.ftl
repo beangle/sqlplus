@@ -40,7 +40,7 @@
         [#list fk.columns as fcol]
           [#if fcol.value==col.name]
              [#assign fkt=fk.referencedTable/]
-           <a href="${module.schema.findGroup(fkt).absolutePath!"error"}.html#表格-${fkt.name.value}">${fkt.schema.name?lower_case}.${fkt.referencedTable.name.value?lower_case}</a>
+           <a href="${report.refTableUrl(fkt)}">${fkt.schema.name?lower_case}.${fkt.name.value?lower_case}</a>
            [#assign finded=true][#break/]
           [/#if]
         [/#list][#t/]

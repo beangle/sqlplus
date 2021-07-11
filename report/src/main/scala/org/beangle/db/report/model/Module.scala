@@ -1,3 +1,21 @@
+/*
+ * Beangle, Agile Development Scaffold and Toolkits.
+ *
+ * Copyright © 2005, The Beangle Software.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.beangle.db.report.model
 
 import org.beangle.commons.collection.Collections
@@ -28,13 +46,6 @@ class Module(val schema: Schema, val name: Option[String], val title: String) {
     val buf = new collection.mutable.ListBuffer[Image]
     for (g <- groups) buf ++= g.allImages
     buf.toList
-  }
-
-  def findGroup(table: Table): Option[Group] = {
-    groups.find { m => m.tables.contains(table) } match {
-      case Some(m) => Some(m)
-      case None => None
-    }
   }
 
 }

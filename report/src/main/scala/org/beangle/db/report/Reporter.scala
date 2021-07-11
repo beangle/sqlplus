@@ -101,6 +101,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
       for (image <- m.images) image.select(report.database)
       m.tables = allTables
     }
+    report.build()
   }
 
   def genWiki(): Unit = {
@@ -131,7 +132,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     data.put("group", group)
     if (group.tables.nonEmpty) {
       logger.info(s"rendering $group")
-      render(data, template, rs, group.path)
+      render(data, template, rs, group.fullName)
     }
     for (g <- group.children) renderGroup(rs, g, template, data)
   }

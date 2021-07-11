@@ -33,17 +33,16 @@ class Group(val name: String, val title: String, module: Module, groupModuleName
   }
 
   override def toString: String = {
-    path + " tables(" + tables.size + ")"
+    fullName + " tables(" + tables.size + ")"
+  }
+
+  def fullName: String = {
+    if (parent.isEmpty) name else (parent.get.fullName + "/") + name
   }
 
   def path: String = {
-    if (parent.isEmpty) name else (parent.get.path + "/") + name
-  }
-
-  def absolutePath:String={
-    val report = module.schema.report
-    val path = report.contentPath + module.path + "/" + name
-    if (parent.isEmpty) path else (parent.get.path + "/") + path
+    val path = module.path + "/" + name
+    if (parent.isEmpty) path else (parent.get.fullName + "/") + path
   }
 
   def addGroup(group: Group): Unit = {
