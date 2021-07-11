@@ -28,10 +28,10 @@ object TableContainer {
     Strings.split(tableSeq.toLowerCase, ",").map { x =>
       val tablePattern =
         if (x.contains(".")) {
-        Strings.replace(x, ".", "_")
-      } else {
-        if (Strings.isBlank(defaultSchema)) x else s"${defaultSchema}_$x"
-      }
+          Strings.replace(x, ".", "_")
+        } else {
+          if (Strings.isBlank(defaultSchema)) x else s"${defaultSchema}_$x"
+        }
       new AntPathPattern(tablePattern)
     }
   }

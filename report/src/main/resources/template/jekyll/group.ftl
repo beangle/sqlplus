@@ -1,9 +1,9 @@
 [#ftl]
 [#include "include/head.ftl"/]
-[@head title=module.title toc=true/]
+[@head title=group.title toc=true/]
 
 [#include "include/table.ftl"/]
-[#list module.images as img]
+[#list group.images as img]
 
 ### 关系图 ${img_index+1}. ${img.title}
   * 关系图
@@ -17,7 +17,7 @@
 [/#if]
 [/#list]
 
-[#list module.tables?sort_by("name") as table]
+[#list group.tables?sort_by("name") as table]
 
 ### 表格 ${table.name.value?lower_case} ${table.comment!}
 [@drawtable table/]

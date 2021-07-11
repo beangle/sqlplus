@@ -1,7 +1,7 @@
 [#ftl]
 [#include "include/head.ftl"/]
 [#include "include/table.ftl"/]
-[#include "include/module.ftl"/]
+[#include "include/group.ftl"/]
 
 <div class="container-narrow">
  <div class="content">
@@ -23,8 +23,8 @@
 
     <h5>2. 具体模块明细</h5>
     <ul>
-    [#list report.modules as m]
-    [@moduletree "2."+(m_index+1),m;prefix,module/]
+    [#list report.groups as m]
+    [@grouptree "2."+(m_index+1),m;prefix,group/]
     [/#list]
     </ul>
 
@@ -56,8 +56,8 @@
 
     <h3>3. 具体模块明细</h3>
 
-    [#list report.modules as m]
-    [@moduletables "3."+(m_index+1),m;prefix,module/]
+    [#list report.groups as m]
+    [@grouptables "3."+(m_index+1),m;prefix,group/]
     [/#list]
 
    </div>

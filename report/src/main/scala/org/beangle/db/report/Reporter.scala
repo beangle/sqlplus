@@ -21,47 +21,15 @@ package org.beangle.db.report
 import freemarker.cache.{ClassTemplateLoader, FileTemplateLoader, MultiTemplateLoader}
 import freemarker.template.Configuration
 import net.sourceforge.plantuml.{OptionFlags, Run}
-import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.Files.{/, stringWriter}
-import org.beangle.commons.lang.Strings
-import org.beangle.commons.lang.Strings.{isEmpty, substringAfterLast, substringBefore, substringBeforeLast}
+import org.beangle.commons.lang.Strings.isEmpty
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.meta.Table
-import org.beangle.db.report.model.{Module, Report}
+import org.beangle.db.report.model.{Group, Module, Report}
 import org.beangle.template.freemarker.BeangleObjectWrapper
 
 import java.io.File
 import java.util.Locale
-
-object MultiReport extends Logging {
-  def main(args: Array[String]): Unit = {
-    if (args.length < 1) {
-      logger.info("Usage: Reporter /path/to/your/report/dir")
-      return
-    }
-    findReportXML(new File(args(0))) foreach (xml => Reporter.main(Array(xml)))
-  }
-
-  private def findReportXML(dir: File): List[String] = {
-    if (dir.isFile) {
-      List(dir.getAbsolutePath)
-    } else {
-      val xmls = Collections.newBuffer[String]
-      dir.listFiles() foreach { f =>
-        if (f.isDirectory()) xmls ++= findReportXML(f)
-        else {
-          if (f.getName.endsWith(".xml") && f.getName != "database.xml") {
-            val f_dir = Strings.substringBeforeLast(f.getAbsolutePath, ".xml")
-            if (new File(f_dir).exists() && new File(f_dir).isDirectory) {
-              xmls += f.getAbsolutePath
-            }
-          }
-        }
-      }
-      xmls.toList
-    }
-  }
-}
 
 object Reporter extends Logging {
 
@@ -72,8 +40,7 @@ object Reporter extends Logging {
     }
 
     val reportxml = new File(args(0))
-    val xmlPath = reportxml.getAbsolutePath()
-    val target = substringBeforeLast(xmlPath, /) + / + substringBefore(substringAfterLast(xmlPath, /), ".xml") + /
+    val target = reportxml.getParent
     logger.info(s"All wiki and images will be generated in $target")
     val reporter = new Reporter(Report(args(0)), target)
     reporter.filterTables()
@@ -85,7 +52,7 @@ object Reporter extends Logging {
       do {
         if (command == "gen") gen(reporter)
         print("gen/exit:")
-        command = Console.in.readLine();
+        command = Console.in.readLine()
       } while (command != "exit" && command != "q")
     } else {
       gen(reporter)
@@ -98,7 +65,7 @@ object Reporter extends Logging {
       reporter.genImages()
       logger.info("report generate complete.")
     } catch {
-      case e: Exception => e.printStackTrace
+      case e: Exception => e.printStackTrace()
     }
   }
 
@@ -109,85 +76,101 @@ class Reporter(val report: Report, val dir: String) extends Logging {
   cfg.setEncoding(Locale.getDefault, "UTF-8")
   val overrideDir = new File(dir + ".." + / + "template")
   if (overrideDir.exists) {
-    logger.info(s"Load override template from ${overrideDir.getAbsolutePath()}")
+    logger.info(s"Load override template from ${overrideDir.getAbsolutePath}")
     cfg.setTemplateLoader(new MultiTemplateLoader(Array(new FileTemplateLoader(overrideDir), new ClassTemplateLoader(getClass, "/template"))))
   } else
     cfg.setTemplateLoader(new ClassTemplateLoader(getClass, "/template"))
   cfg.setObjectWrapper(new BeangleObjectWrapper)
 
-  val schema = report.database.getOrCreateSchema(report.schemaName)
 
   def filterTables(): Unit = {
-    val lastTables = new collection.mutable.HashSet[Table]
-    schema.tables.values foreach { t =>
-      if (null == report.packageName) {
-        lastTables += t
-      } else {
-        t.module foreach { m =>
-          if (m.startsWith(report.packageName)) lastTables += t
+    for (s <- report.schemas; m <- s.modules) {
+      val schema = report.database.getSchema(s.name).get
+      val schemaTables = new collection.mutable.HashSet[Table]
+      schema.tables.values foreach { t =>
+        m.name match {
+          case None => schemaTables += t
+          case Some(pkg) =>
+            t.module foreach { mn =>
+              if (mn.startsWith(pkg)) schemaTables += t
+            }
         }
       }
+      val allTables = schemaTables.toList
+      for (group <- m.groups) group.filter(schemaTables)
+      for (image <- m.images) image.select(report.database)
+      m.tables = allTables
     }
-    lastTables ++= schema.tables.values
-    for (module <- report.modules) module.filter(lastTables)
-    for (image <- report.images) image.select(report.database)
-    report.tables = schema.tables.values.filterNot(lastTables.contains(_))
   }
 
   def genWiki(): Unit = {
-    val data = new collection.mutable.HashMap[String, Any]
-    data += ("engine" -> report.database.engine)
-    data += ("tablesMap" -> schema.tables)
-    data += ("report" -> report)
-    data += ("sequences" -> schema.sequences)
-    data += ("schema" -> schema)
+    for (rs <- report.schemas; s <- rs.modules) {
+      logger.info(s"rendering module ${s.id}")
+      val schema = report.database.getSchema(rs.name).get
+      val data = new collection.mutable.HashMap[String, Any]
+      data += ("engine" -> report.database.engine)
+      data += ("tablesMap" -> schema.tables)
+      data += ("report" -> report)
+      data += ("sequences" -> schema.sequences)
+      data += ("module" -> s)
 
-    for (page <- report.pages) {
-      if (page.iterable) {
-        for (module <- report.modules)
-          renderModule(module, page.name, data)
-      } else {
-        data.remove("module")
-        render(data, page.name)
+      for (page <- report.pages) {
+        if (page.iterable) {
+          s.groups foreach { group =>
+            renderGroup(s, group, page.name, data)
+          }
+        } else {
+          data.remove("group")
+          render(data, page.name, s)
+        }
       }
     }
   }
 
-  def renderModule(module: Module, template: String, data: collection.mutable.HashMap[String, Any]): Unit = {
-    data.put("module", module)
-    if (module.tables.nonEmpty) {
-      logger.info(s"rendering module $module...")
-      render(data, template, module.path)
+  def renderGroup(rs: Module, group: Group, template: String, data: collection.mutable.HashMap[String, Any]): Unit = {
+    data.put("group", group)
+    if (group.tables.nonEmpty) {
+      logger.info(s"rendering $group")
+      render(data, template, rs, group.path)
     }
-    for (module <- module.children) renderModule(module, template, data)
+    for (g <- group.children) renderGroup(rs, g, template, data)
   }
 
   def genImages(): Unit = {
-    if (report.images.isEmpty) return
-    val data = new collection.mutable.HashMap[String, Any]()
-    data += ("schema" -> schema)
-    data += ("report" -> report)
+    for (rs <- report.schemas; s <- rs.modules) {
+      if (s.images.nonEmpty) {
+        val data = new collection.mutable.HashMap[String, Any]()
+        data += ("module" -> s)
+        data += ("report" -> report)
 
-    report.images foreach { image =>
-      data.put("image", image)
-      val javafile = new File(dir + "images" + / + image.name + ".java")
-      javafile.getParentFile.mkdirs()
-      val fw = stringWriter(javafile)
-      val freemarkerTemplate = cfg.getTemplate("image.ftl")
-      freemarkerTemplate.process(data, fw)
-      fw.close()
-    }
-    OptionFlags.getInstance().setSystemExit(false)
-    Run.main(Array(dir + "images/"))
-    report.images foreach { image =>
-      val javafile = new File(dir + "images" + / + image.name + ".java")
-      javafile.delete()
+        val imageBase = moduleBaseDir(s) + / + "images"
+        s.images foreach { image =>
+          data.put("image", image)
+          val javafile = new File(imageBase + / + image.name + ".java")
+          javafile.getParentFile.mkdirs()
+          val fw = stringWriter(javafile)
+          val freemarkerTemplate = cfg.getTemplate("image.ftl")
+          freemarkerTemplate.process(data, fw)
+          fw.close()
+        }
+        OptionFlags.getInstance().setSystemExit(false)
+        Run.main(Array(imageBase))
+        s.images foreach { image =>
+          val javafile = new File(imageBase + / + image.name + ".java")
+          javafile.delete()
+        }
+      }
     }
   }
 
-  private def render(data: collection.mutable.HashMap[String, Any], template: String, result: String = ""): Unit = {
-    val wikiResult = if (isEmpty(result)) template else result;
-    val file = new File(dir + wikiResult + report.extension)
+  private def moduleBaseDir(module: Module): String = {
+    val packageName = module.name.map(/ + _).getOrElse("")
+    dir + / + module.schema.name + packageName
+  }
+
+  private def render(data: collection.mutable.HashMap[String, Any], template: String, rs: Module, result: String = ""): Unit = {
+    val wikiResult = if (isEmpty(result)) template else result
+    val file = new File(moduleBaseDir(rs) + / + wikiResult + report.extension)
     file.getParentFile.mkdirs()
     val fw = stringWriter(file)
     val freemarkerTemplate = cfg.getTemplate(report.template + "/" + template + ".ftl")

@@ -2,8 +2,8 @@
 [#macro head title="" toc=false]
 ---
 layout: page
-title: ${report.system.name} ${title}
-description: "${report.system.name}${title}"
+title: ${module.title} ${title}
+description: "${module.title}${title}"
 categories: [model-${report.system.version}]
 version: ["${report.system.version}"]
 ---

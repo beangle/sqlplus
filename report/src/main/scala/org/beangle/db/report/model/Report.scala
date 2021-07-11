@@ -23,6 +23,7 @@ import org.beangle.commons.io.Files
 import org.beangle.commons.lang.Strings
 import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.data.jdbc.meta._
+import org.beangle.db.report.model.{Schema => ReportSchema}
 
 import java.io.{File, FileInputStream}
 
@@ -32,8 +33,6 @@ object Report {
     val xml = scala.xml.XML.load(new FileInputStream(reportXml))
     val dir = new File(reportXml).getParent
     var database: Database = null
-    var schemaName: String = null
-    var packageName: String = null
     if ((xml \ "db").nonEmpty) {
       val dbconf = DataSourceUtils.parseXml(xml)
       database = new Database(dbconf.engine)
@@ -44,64 +43,71 @@ object Report {
       val loader = new MetadataLoader(meta, dbconf.engine)
       loader.loadTables(schema, extras = true)
       loader.loadSequences(schema)
-      schemaName = dbconf.schema.value
       DataSourceUtils.close(ds)
     } else {
       val databaseXml = (xml \ "database" \ "@xml").text
-      schemaName = (xml \ "database" \ "@schema").text
-      packageName = (xml \ "database" \ "@package").text
       database = Serializer.fromXml(Files.readString(new File(dir + Files./ + databaseXml)))
     }
-    val report = new Report(database, schemaName)
+    val report = new Report(database)
     report.title = (xml \ "@title").text
+    report.contentPath = (xml \ "@contentPath").text
     report.system.name = (xml \ "system" \ "@name").text
     report.system.version = (xml \ "system" \ "@version").text
     (xml \ "system" \ "props" \ "prop").foreach { ele => report.system.properties.put((ele \ "@name").text, (ele \ "@value").text) }
 
-    (xml \ "modules" \ "module").foreach { ele => parseModule(ele, report, packageName, None) }
+    (xml \ "schemas" \ "schema").foreach { ele =>
+      val schema = new ReportSchema((ele \ "@name").text, (ele \ "@title").text,report)
+      report.addSchema(schema)
+      (ele \ "module") foreach { ele =>
+        val n = (ele \ "@name").text
+        val name = Some(n).filter(Strings.isNotBlank)
+        val module = new Module(schema, name, (ele \ "@title").text)
+        schema.modules += module
+        (ele \ "group").foreach { ele => parseGroup(ele, report, module, name, None) }
+      }
+    }
+
     (xml \ "pages" \ "page").foreach { ele =>
       report.addPage(Page((ele \ "@name").text, (ele \ "@iterable").text == "true"))
     }
     report.template = (xml \ "pages" \ "@template").text
     report.extension = (xml \ "pages" \ "@extension").text
     report.imageurl = (xml \ "pages" \ "@imageurl").text
-    report.packageName = packageName
     report.init()
     report
   }
 
-  def parseModule(node: scala.xml.Node, report: Report, packageName: String, parent: Option[Module]): Unit = {
+  def parseGroup(node: scala.xml.Node, report: Report, module: Module, groupModuleName: Option[String], parent: Option[Group]): Unit = {
     val name = (node \ "@name").text
     var tables = (node \ "@tables").text
-    var mp = Some(packageName).filter(Strings.isNotEmpty)
+    var mp = groupModuleName
     if (Strings.isBlank(tables)) {
       tables = "@MODULE"
-      mp = if (Strings.isNotEmpty(packageName)) Some(packageName + "." + name) else Some(name)
+      mp = if (mp.nonEmpty) Some(mp.get + "." + name) else Some(name)
     }
-    val module = new Module(name, (node \ "@title").text, report.schemaName, mp, tables)
+    val group = new Group(name, (node \ "@title").text, module, mp, tables)
     (node \ "image").foreach { ele =>
-      module.addImage(
-        new Image((ele \ "@name").text, (ele \ "@title").text, report.schemaName,
-          (ele \ "@tables").text, ele.text.trim))
+      group.addImage(
+        new Image((ele \ "@name").text, (ele \ "@title").text, module.schema.name, (ele \ "@tables").text, ele.text.trim))
     }
     parent match {
-      case None => report.addModule(module)
-      case Some(p) => p.addModule(module)
+      case None => module.addGroup(group)
+      case Some(p) => p.addGroup(group)
     }
 
-    (node \ "module").foreach { ele => parseModule(ele, report, packageName, Some(module)) }
+    (node \ "group").foreach { ele => parseGroup(ele, report, module, groupModuleName, Some(group)) }
   }
 }
 
-class Report(val database: Database, val schemaName: String) extends Initializing {
+class Report(val database: Database) extends Initializing {
 
   var title: String = _
 
   var system: System = new System
 
-  var module: Option[String] = None
+  var schemas: List[ReportSchema] = List()
 
-  var modules: List[Module] = List()
+  var contentPath: String = ""
 
   var pages: List[Page] = List()
 
@@ -109,27 +115,10 @@ class Report(val database: Database, val schemaName: String) extends Initializin
 
   var imageurl: String = _
 
-  var packageName: String = _
-
   var extension: String = _
 
-  var tables: Iterable[Table] = _
-
-  def findModule(table: Table): Option[Module] = {
-    modules.find { m => m.tables.contains(table) } match {
-      case Some(m) => Some(m)
-      case None => None
-    }
-  }
-
-  def images: List[Image] = {
-    val buf = new collection.mutable.ListBuffer[Image]
-    for (module <- modules) buf ++= module.allImages
-    buf.toList
-  }
-
-  def addModule(module: Module): Unit = {
-    modules :+= module
+  def addSchema(schema: ReportSchema): Unit = {
+    schemas :+= schema
   }
 
   def addPage(page: Page): Unit = {

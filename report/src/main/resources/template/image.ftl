@@ -28,4 +28,4 @@ note "${table.comment!}" as ${table.name.value?lower_case}_comments
 [/#list]
 @enduml
 
-[#macro entityName table][#if schema.name.value == table.schema.name.value]${table.name.value?lower_case}[#else]"${table.schema.name.value?lower_case}.${table.name.value?lower_case}"[/#if][/#macro]
+[#macro entityName table][#if module.schema.name == table.schema.name.value]${table.name.value?lower_case}[#else]"${table.schema.name?lower_case}.${table.name.value?lower_case}"[/#if][/#macro]
