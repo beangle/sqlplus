@@ -82,7 +82,6 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     cfg.setTemplateLoader(new ClassTemplateLoader(getClass, "/template"))
   cfg.setObjectWrapper(new BeangleObjectWrapper)
 
-
   def filterTables(): Unit = {
     for (s <- report.schemas; m <- s.modules) {
       val schema = report.database.getSchema(s.name).get

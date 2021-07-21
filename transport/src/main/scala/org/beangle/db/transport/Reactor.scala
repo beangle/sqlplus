@@ -21,6 +21,7 @@ package org.beangle.db.transport
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.DataSourceUtils
+import org.beangle.data.jdbc.engine.StoreCase
 import org.beangle.data.jdbc.meta.{Constraint, Table}
 import org.beangle.db.transport.Config.Source
 import org.beangle.db.transport.schema._
@@ -81,7 +82,9 @@ class Reactor(val config: Config) extends Logging {
     val sequences = sourceWrapper.schema.filterSequences(config.source.sequence.includes, config.source.sequence.excludes)
     sequences foreach { n =>
       n.schema = config.target.getSchema
-      n.toCase(config.source.sequence.lowercase)
+      if (config.target.engine.storeCase != StoreCase.Mixed) {
+        n.toCase(config.target.engine.storeCase == StoreCase.Lower)
+      }
       n.attach(config.target.engine)
     }
     sequenceConverter.addAll(sequences)
@@ -111,8 +114,8 @@ class Reactor(val config: Config) extends Logging {
     for (srcTable <- tables) {
       val targetTable = srcTable.clone()
       targetTable.updateSchema(targetWrapper.schema)
-      if (source.table.lowercase) {
-        targetTable.toCase(true)
+      if (config.target.engine.storeCase != StoreCase.Mixed) {
+        targetTable.toCase(config.target.engine.storeCase == StoreCase.Lower)
       }
       targetTable.attach(targetWrapper.engine)
       tablePairs.put(targetTable.name.toString, (srcTable -> targetTable))

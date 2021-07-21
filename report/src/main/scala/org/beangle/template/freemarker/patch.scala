@@ -31,10 +31,8 @@ class SimpleMethodModel(obj: AnyRef, methodInfos: Seq[MethodInfo], wrapper: Bean
       methodInfos.find(x => x.parameterTypes.length == arguments.size) match {
         case Some(x) =>
           val method = x.method
-          val retval = method.invoke(obj, args: _*)
-          if (method.getReturnType == classOf[Unit])
-            TemplateModel.NOTHING
-          else wrapper.wrap(retval);
+          if (method.getReturnType == classOf[Unit]) TemplateModel.NOTHING
+          else wrapper.wrap(method.invoke(obj, args: _*));
         case None => null
       }
     } catch {

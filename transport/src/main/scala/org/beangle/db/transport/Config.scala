@@ -73,7 +73,6 @@ object Config {
     source.schema = dbconf.schema
     source.catalog = dbconf.catalog
     val tableConfig = new TableConfig
-    tableConfig.lowercase = "true" == (xml \\ "tables" \ "@lowercase").text
     tableConfig.withIndex = "false" != (xml \\ "tables" \ "@index").text
     tableConfig.withConstraint = "false" != (xml \\ "tables" \ "@constraint").text
     tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim.toLowerCase).toSeq
@@ -83,7 +82,6 @@ object Config {
     val seqConfig = new SeqConfig
     seqConfig.includes = Strings.split((xml \\ "sequences" \\ "includes").text.trim).toSeq
     seqConfig.excludes = Strings.split((xml \\ "sequences" \\ "excludes").text.trim).toSeq
-    seqConfig.lowercase = "true" == (xml \\ "sequences" \ "@lowercase").text
     source.sequence = seqConfig
 
     source
@@ -115,7 +113,6 @@ object Config {
   final class TableConfig {
     var includes: Seq[String] = _
     var excludes: Seq[String] = _
-    var lowercase: Boolean = true
     var withIndex: Boolean = true
     var withConstraint: Boolean = true
   }
@@ -123,7 +120,6 @@ object Config {
   final class SeqConfig {
     var includes: Seq[String] = _
     var excludes: Seq[String] = _
-    var lowercase: Boolean = false
   }
 
   class SchemaHolder(val engine: Engine, val dataSource: DataSource) {
