@@ -21,8 +21,13 @@ package org.beangle.db.report.model
 import org.beangle.commons.regex.AntPathPattern
 import org.beangle.data.jdbc.meta.Table
 
-class Group(val name: String, val title: String, module: Module, groupModuleName: Option[String], tableseq: String)
+class Group(val name: String, val title: String, val module: Module, groupModuleName: Option[String], tableseq: String)
   extends TableContainer {
+
+  def id: String = {
+    module.id + "." + name
+  }
+
   override val patterns: Array[AntPathPattern] = TableContainer.buildPatterns(module.schema.name, tableseq)
   var children: List[Group] = List.empty
   var images: List[Image] = List.empty

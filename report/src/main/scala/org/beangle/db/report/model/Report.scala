@@ -129,6 +129,23 @@ class Report(val database: Database) extends Initializing with Logging {
     pages :+= page
   }
 
+  def allGroups:List[Group]={
+    for (s <- schemas; m <- s.modules; g <- m.groups) yield g
+  }
+
+  def allTables:List[Table]={
+    for (s <- schemas; m <- s.modules; g <- m.groups; t<-g.tables) yield t
+  }
+
+  def allSequences:List[Sequence] ={
+    val seqs = for(sc <- database.schemas.values; s<-sc.sequences) yield s
+    seqs.toList
+  }
+
+  def allImages:List[Image]={
+    for (s <- schemas; m <- s.modules; g <- m.groups; i <-g.allImages) yield i
+  }
+
   def build(): Unit = {
     for (s <- schemas; m <- s.modules; g <- m.groups; t <- g.tables) {
       table2Group.put(t, g)

@@ -104,24 +104,33 @@ class Reporter(val report: Report, val dir: String) extends Logging {
   }
 
   def genWiki(): Unit = {
-    for (rs <- report.schemas; s <- rs.modules) {
-      logger.info(s"rendering module ${s.id}")
-      val schema = report.database.getSchema(rs.name).get
-      val data = new collection.mutable.HashMap[String, Any]
-      data += ("engine" -> report.database.engine)
-      data += ("tablesMap" -> schema.tables)
-      data += ("report" -> report)
-      data += ("sequences" -> schema.sequences)
-      data += ("module" -> s)
+    if(report.template=="singlehtml"){
+        val data = new collection.mutable.HashMap[String, Any]
+        data += ("engine" -> report.database.engine)
+        data += ("tablesMap" -> report.allTables)
+        data += ("report" -> report)
+        data += ("sequences" -> report.allSequences)
+        render(data, "index", dir)
+    }else {
+      for (rs <- report.schemas; s <- rs.modules) {
+        logger.info(s"rendering module ${s.id}")
+        val schema = report.database.getSchema(rs.name).get
+        val data = new collection.mutable.HashMap[String, Any]
+        data += ("engine" -> report.database.engine)
+        data += ("tablesMap" -> schema.tables)
+        data += ("report" -> report)
+        data += ("sequences" -> schema.sequences)
+        data += ("module" -> s)
 
-      for (page <- report.pages) {
-        if (page.iterable) {
-          s.groups foreach { group =>
-            renderGroup(s, group, page.name, data)
+        for (page <- report.pages) {
+          if (page.iterable) {
+            s.groups foreach { group =>
+              renderGroup(s, group, page.name, data)
+            }
+          } else {
+            data.remove("group")
+            render(data, page.name, moduleBaseDir(s))
           }
-        } else {
-          data.remove("group")
-          render(data, page.name, s)
         }
       }
     }
@@ -131,7 +140,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     data.put("group", group)
     if (group.tables.nonEmpty) {
       logger.info(s"rendering $group")
-      render(data, template, rs, group.fullName)
+      render(data, template, moduleBaseDir(rs), group.fullName)
     }
     for (g <- group.children) renderGroup(rs, g, template, data)
   }
@@ -143,7 +152,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
         data += ("module" -> s)
         data += ("report" -> report)
 
-        val imageBase = moduleBaseDir(s) + / + "images"
+        val imageBase = (if(report.template =="singlehtml") dir else moduleBaseDir(s)) + / + "images"
         s.images foreach { image =>
           data.put("image", image)
           val javafile = new File(imageBase + / + image.name + ".java")
@@ -168,9 +177,9 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     dir + / + module.schema.name + packageName
   }
 
-  private def render(data: collection.mutable.HashMap[String, Any], template: String, rs: Module, result: String = ""): Unit = {
+  private def render(data: collection.mutable.HashMap[String, Any], template: String, base:String, result: String = ""): Unit = {
     val wikiResult = if (isEmpty(result)) template else result
-    val file = new File(moduleBaseDir(rs) + / + wikiResult + report.extension)
+    val file = new File(base + / + wikiResult + report.extension)
     file.getParentFile.mkdirs()
     val fw = stringWriter(file)
     val freemarkerTemplate = cfg.getTemplate(report.template + "/" + template + ".ftl")

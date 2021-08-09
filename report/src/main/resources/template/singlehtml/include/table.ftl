@@ -1,17 +1,20 @@
 [#ftl]
 [#macro drawtable table]
+<div class="panel panel-info">
+  <div class="panel-heading"><h5 id="table_${table.qualifiedName?lower_case}">表格${table.qualifiedName?lower_case}</h5></div>
+  <div class="panel-body">
 <ul>
   <li>表格说明</li>
 </ul>
 
-<table class="table table-bordered table-striped table-condensed">
+<table class="table table-bordered table-striped table-condensed ">
   <tr>[#t/]
-    <th style="background-color:#D0D3FF">表名</th>[#t/]
-    <th style="background-color:#D0D3FF">主键</th>[#t/]
-    <th style="background-color:#D0D3FF">注释</th>[#t/]
+    <th class="info_header">表名</th>[#t/]
+    <th class="info_header">主键</th>[#t/]
+    <th class="info_header">注释</th>[#t/]
   </tr>
   <tr>[#t/]
-    <td>${table.name.value?lower_case}</td>[#t/]
+    <td>${table.qualifiedName?lower_case}</td>[#t/]
     <td>[#if table.primaryKey??][#list table.primaryKey.columns as c]${c.value?lower_case}[#if c_has_next],[/#if][/#list][/#if]</td>[#t/]
     <td>${table.comment!}</td>[#t/]
   </tr>
@@ -21,12 +24,12 @@
 </ul>
 <table class="table table-bordered table-striped table-condensed">
   <tr>[#t/]
-    <th style="background-color:#D0D3FF">序号</th>[#t/]
-    <th style="background-color:#D0D3FF">字段名</th>[#t/]
-    <th style="background-color:#D0D3FF">字段类型</th>[#t/]
-    <th style="background-color:#D0D3FF">是否可空</th>[#t/]
-    <th style="background-color:#D0D3FF">描述</th>[#t/]
-    <th style="background-color:#D0D3FF">引用表</th>[#t/]
+    <th class="info_header">序号</th>[#t/]
+    <th class="info_header">字段名</th>[#t/]
+    <th class="info_header">字段类型</th>[#t/]
+    <th class="info_header">是否可空</th>[#t/]
+    <th class="info_header">描述</th>[#t/]
+    <th class="info_header">引用表</th>[#t/]
   </tr>
   [#list table.columns as col]
   <tr>[#t/]
@@ -38,7 +41,11 @@
     <td>[#assign finded=false][#t/]
         [#list table.foreignKeys as fk]
         [#if !finded]
-        [#list fk.columns as fcol][#if fcol.value==col.name]${fk.referencedTable.name.value?lower_case}[#assign finded=true][#break/][/#if][/#list][#t/]
+        [#list fk.columns as fcol]
+          [#if fcol.value==col.name]
+          <a href="#table_${fk.referencedTable.qualifiedName?lower_case}">${fk.referencedTable.qualifiedName?lower_case}</a>[#assign finded=true][#break/]
+          [/#if]
+        [/#list]
         [/#if]
         [/#list]
     </td>[#t/]
@@ -52,9 +59,9 @@
 </ul>
 <table class="table table-bordered table-striped table-condensed">
   <tr>
-    <th style="background-color:#D0D3FF">序号</th>[#t/]
-    <th style="background-color:#D0D3FF">约束名</th>[#t/]
-    <th style="background-color:#D0D3FF">约束字段</th>[#t/]
+    <th class="info_header">序号</th>[#t/]
+    <th class="info_header">约束名</th>[#t/]
+    <th class="info_header">约束字段</th>[#t/]
   </tr>
   [#list table.uniqueKeys as uk]
   <tr>[#t/]
@@ -72,9 +79,9 @@
 </ul>
 <table class="table table-bordered table-striped table-condensed">
   <tr>
-    <th style="background-color:#D0D3FF">索引名</th>[#t/]
-    <th style="background-color:#D0D3FF">索引字段</th>[#t/]
-    <th style="background-color:#D0D3FF">是否唯一</th>[#t/]
+    <th class="info_header">索引名</th>[#t/]
+    <th class="info_header">索引字段</th>[#t/]
+    <th class="info_header">是否唯一</th>[#t/]
   </tr>
   [#list table.indexes as idx]
   <tr>[#t/]
@@ -85,4 +92,6 @@
   [/#list]
 </table>
 [/#if]
+  </div>
+</div>
 [/#macro]
