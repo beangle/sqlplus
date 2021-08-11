@@ -1,6 +1,6 @@
 [#ftl]
 [#macro grouptree prefix group]
-<li> <a href="#${group.id}">${prefix} ${group.title}</a></li>
+<li> <a href="#${group.id}">${prefix} ${(group.module.schema.title)!} ${group.module.title} ${group.title}</a></li>
 [#list group.children as m]
   [@grouptree prefix+"."+(m_index+1),m;prefix,group/]
 [/#list]

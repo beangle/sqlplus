@@ -3,7 +3,7 @@
   [#list schema.modules as module]
     [#list module.groups as group]
     [#assign tables = group.tables/]
-${schema.name}中${module.title}${group.title}下共计${tables?size}个表，分别如下:
+${schema.title}中的${module.title}-${group.title}下共计${tables?size}个表(${schema.name}.)，分别如下:
 
 <table class="table table-bordered table-striped table-condensed">
   <tr>
