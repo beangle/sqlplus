@@ -7,7 +7,7 @@
 [/#macro]
 
 [#macro grouptables prefix group]
-<h4 id="${group.id}">${prefix} ${group.title}</h4>
+<h4 id="${group.id}">${prefix} ${(group.module.schema.title)!} ${group.module.title} ${group.title}</h4>
 [#list group.tables?sort_by("name") as table]
 [@drawtable table/]
 [/#list]
