@@ -1,6 +1,6 @@
 [#ftl]
-[#assign tables = report.tables/]
-数据库共计${tables?size}个表，分别如下:
+[#assign tables = module.tables/]
+Schema ${module.schema.name}[#if module.name??].${module.name}[/#if]下共计${tables?size}个表，分别如下:
 
 <table class="table table-bordered table-striped table-condensed">
   <tr>
@@ -17,11 +17,11 @@
   <tr>
     [#assign table= sortedTables[i-1] /]
     <td>${i}</td>
-    <td><a href="${report.findModule(table).path!"error"}.html#表格-${table.name.value}-${table.comment!}">${table.name.value?lower_case}</a> ${table.comment!}</td>
+    <td><a href="${report.tableUrl(table)}">${table.name.value?lower_case}</a> ${table.comment!}</td>
     [#if tables[i-1+tabcnt]??]
     [#assign table= sortedTables[i-1+tabcnt] /]
     <td>${i+tabcnt}</td>
-    <td><a href="${report.findModule(table).path!"error"}.html#表格-${table.name.value}-${table.comment!}">${table.name.value?lower_case}</a> ${table.comment!}</td>
+    <td><a href="${report.tableUrl(table)}">${table.name.value?lower_case}</a> ${table.comment!}</td>
     [#else]
     <td></td>
     <td></td>

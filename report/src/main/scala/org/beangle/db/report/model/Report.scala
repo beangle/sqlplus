@@ -1,29 +1,32 @@
 /*
- * Beangle, Agile Development Scaffold and Toolkits.
- *
- * Copyright © 2005, The Beangle Software.
+ * Copyright (C) 2005, The Beangle Software.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.beangle.db.report.model
 
-import java.io.{File, FileInputStream}
 import org.beangle.commons.bean.Initializing
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.Files
 import org.beangle.commons.lang.Strings
+import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.data.jdbc.meta._
+import org.beangle.db.report.model.{Schema => ReportSchema}
+
+import java.io.{File, FileInputStream}
 
 object Report {
 
@@ -31,34 +34,42 @@ object Report {
     val xml = scala.xml.XML.load(new FileInputStream(reportXml))
     val dir = new File(reportXml).getParent
     var database: Database = null
-    var schemaName: String = null
     if ((xml \ "db").nonEmpty) {
       val dbconf = DataSourceUtils.parseXml(xml)
       database = new Database(dbconf.engine)
       val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
       val schema = new Schema(database, dbconf.schema)
 
-      val meta = ds.getConnection().getMetaData()
+      val meta = ds.getConnection().getMetaData
       val loader = new MetadataLoader(meta, dbconf.engine)
-      loader.loadTables(schema, true)
+      loader.loadTables(schema, extras = true)
       loader.loadSequences(schema)
-      schemaName = dbconf.schema.value
       DataSourceUtils.close(ds)
     } else {
       val databaseXml = (xml \ "database" \ "@xml").text
-      schemaName = (xml \ "database" \ "@schema").text
       database = Serializer.fromXml(Files.readString(new File(dir + Files./ + databaseXml)))
     }
-    val report = new Report(database, schemaName)
+    val report = new Report(database)
     report.title = (xml \ "@title").text
+    report.contextPath = (xml \ "@contextPath").text
     report.system.name = (xml \ "system" \ "@name").text
     report.system.version = (xml \ "system" \ "@version").text
     (xml \ "system" \ "props" \ "prop").foreach { ele => report.system.properties.put((ele \ "@name").text, (ele \ "@value").text) }
 
-    (xml \ "modules" \ "module").foreach { ele => parseModule(ele, report, None) }
+    (xml \ "schemas" \ "schema").foreach { ele =>
+      val schema = new ReportSchema((ele \ "@name").text, (ele \ "@title").text, report)
+      report.addSchema(schema)
+      (ele \ "module") foreach { ele =>
+        val n = (ele \ "@name").text
+        val name = Some(n).filter(Strings.isNotBlank)
+        val module = new Module(schema, name, (ele \ "@title").text)
+        schema.modules += module
+        (ele \ "group").foreach { ele => parseGroup(ele, report, module, name, None) }
+      }
+    }
+
     (xml \ "pages" \ "page").foreach { ele =>
-      report.addPage(
-        new Page((ele \ "@name").text, (ele \ "@iterable").text == "true"))
+      report.addPage(Page((ele \ "@name").text, (ele \ "@iterable").text == "true"))
     }
     report.template = (xml \ "pages" \ "@template").text
     report.extension = (xml \ "pages" \ "@extension").text
@@ -67,28 +78,37 @@ object Report {
     report
   }
 
-  def parseModule(node: scala.xml.Node, report: Report, parent: Option[Module]): Unit = {
-    val module = new Module((node \ "@name").text, (node \ "@title").text, (node \ "@tables").text)
+  def parseGroup(node: scala.xml.Node, report: Report, module: Module, groupModuleName: Option[String], parent: Option[Group]): Unit = {
+    val name = (node \ "@name").text
+    var tables = (node \ "@tables").text
+    var mp = groupModuleName
+    if (Strings.isBlank(tables)) {
+      tables = "@MODULE"
+      mp = if (mp.nonEmpty) Some(mp.get + "." + name) else Some(name)
+    }
+    val group = new Group(name, (node \ "@title").text, module, mp, tables)
     (node \ "image").foreach { ele =>
-      module.addImage(
-        new Image((ele \ "@name").text, (ele \ "@title").text, (ele \ "@tables").text, ele.text.trim))
+      group.addImage(
+        new Image((ele \ "@name").text, (ele \ "@title").text, module.schema.name, (ele \ "@tables").text, ele.text.trim))
     }
     parent match {
-      case None => report.addModule(module)
-      case Some(p) => p.addModule(module)
+      case None => module.addGroup(group)
+      case Some(p) => p.addGroup(group)
     }
 
-    (node \ "module").foreach { ele => parseModule(ele, report, Some(module)) }
+    (node \ "group").foreach { ele => parseGroup(ele, report, module, groupModuleName, Some(group)) }
   }
 }
 
-class Report(val database: Database, val schemaName: String) extends Initializing {
+class Report(val database: Database) extends Initializing with Logging {
 
   var title: String = _
 
   var system: System = new System
 
-  var modules: List[Module] = List()
+  var schemas: List[ReportSchema] = List()
+
+  var contextPath: String = ""
 
   var pages: List[Page] = List()
 
@@ -98,27 +118,55 @@ class Report(val database: Database, val schemaName: String) extends Initializin
 
   var extension: String = _
 
-  var tables: Iterable[Table] = _
+  val table2Group = Collections.newMap[Table, Group]
 
-  def findModule(table: Table): Option[Module] = {
-    modules.find { m => m.tables.contains(table) } match {
-      case Some(m) => Some(m)
-      case None => None
-    }
-  }
-
-  def images: List[Image] = {
-    val buf = new collection.mutable.ListBuffer[Image]
-    for (module <- modules) buf ++= module.allImages
-    buf.toList
-  }
-
-  def addModule(module: Module): Unit = {
-    modules :+= module
+  def addSchema(schema: ReportSchema): Unit = {
+    schemas :+= schema
   }
 
   def addPage(page: Page): Unit = {
     pages :+= page
+  }
+
+  def allGroups:List[Group]={
+    for (s <- schemas; m <- s.modules; g <- m.groups) yield g
+  }
+
+  def allTables:List[Table]={
+    for (s <- schemas; m <- s.modules; g <- m.groups; t<-g.tables) yield t
+  }
+
+  def allSequences:List[Sequence] ={
+    val seqs = for(sc <- database.schemas.values; s<-sc.sequences) yield s
+    seqs.toList
+  }
+
+  def allImages:List[Image]={
+    for (s <- schemas; m <- s.modules; g <- m.groups; i <-g.allImages) yield i
+  }
+
+  def build(): Unit = {
+    for (s <- schemas; m <- s.modules; g <- m.groups; t <- g.tables) {
+      table2Group.put(t, g)
+    }
+  }
+
+  def refTableUrl(tableRef: TableRef): String = {
+    database.getTable(tableRef) match {
+      case None => logger.warn("Cannot find group of [" + tableRef.qualifiedName + "]"); "error"
+      case Some(t) =>
+        table2Group.get(t) match {
+          case None => logger.warn("Cannot find group of [" + tableRef.qualifiedName + "]"); ""
+          case Some(g) => contextPath + g.path + s".html#表格-${tableRef.name.value}-${t.comment.getOrElse("")}"
+        }
+    }
+  }
+
+  def tableUrl(table: Table): String = {
+    table2Group.get(table) match {
+      case None => logger.warn("Cannot find group of [" + table.qualifiedName + "]"); "error"
+      case Some(g) => contextPath + g.path + s".html#表格-${table.name.value}-${table.comment.getOrElse("")}"
+    }
   }
 
   def init(): Unit = {

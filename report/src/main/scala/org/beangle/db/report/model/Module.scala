@@ -15,30 +15,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.beangle.db.lint.seq.impl
+package org.beangle.db.report.model
 
-import org.beangle.commons.bean.Initializing
-import org.beangle.commons.lang.Strings
-import org.beangle.db.lint.seq.SequenceNamePattern
+import org.beangle.commons.collection.Collections
+import org.beangle.data.jdbc.meta.Table
 
-class DefaultSequenceNamePattern extends SequenceNamePattern with Initializing {
+import scala.collection.mutable
 
-  var pattern = "SEQ_${table}"
+class Module(val schema: Schema, val name: Option[String], val title: String) {
 
-  var begin = 0
-  var postfix: String = null
+  var groups: mutable.Buffer[Group] = Collections.newBuffer[Group]
 
-  def getTableName(seqName: String): String = {
-    var end = seqName.length()
-    if (Strings.isNotEmpty(postfix)) end = seqName.lastIndexOf(postfix)
-    return Strings.substring(seqName, begin, end)
+  def id: String = {
+    schema.name + name.map("." + _).getOrElse("")
   }
 
-  def getPattern(): String = pattern
+  def path: String = {
+    val packageName = name.map("/" + _).getOrElse("")
+    "/" + schema.name + packageName
+  }
 
-  def init(): Unit = {
-    begin = pattern.indexOf("${table}")
-    postfix = Strings.substringAfter(pattern, "${table}")
+  def addGroup(g: Group): Unit = {
+    groups += g
+  }
+
+  var tables: Iterable[Table] = _
+
+  def images: List[Image] = {
+    val buf = new collection.mutable.ListBuffer[Image]
+    for (g <- groups) buf ++= g.allImages
+    buf.toList
   }
 
 }

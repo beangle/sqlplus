@@ -15,30 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.beangle.db.lint.seq.impl
+package org.beangle.db.report.model
 
-import org.beangle.commons.bean.Initializing
-import org.beangle.commons.lang.Strings
-import org.beangle.db.lint.seq.SequenceNamePattern
+import org.beangle.commons.regex.AntPathPattern
+import org.beangle.data.jdbc.meta.Database
 
-class DefaultSequenceNamePattern extends SequenceNamePattern with Initializing {
+class Image(val name: String, val title: String, schemaName: String, tableseq: String, val description: String) extends TableContainer {
+  override val patterns: Array[AntPathPattern] = TableContainer.buildPatterns(schemaName, tableseq)
 
-  var pattern = "SEQ_${table}"
-
-  var begin = 0
-  var postfix: String = null
-
-  def getTableName(seqName: String): String = {
-    var end = seqName.length()
-    if (Strings.isNotEmpty(postfix)) end = seqName.lastIndexOf(postfix)
-    return Strings.substring(seqName, begin, end)
+  def select(database: Database): Unit = {
+    for (schema <- database.schemas.values) {
+      for (table <- schema.tables.values) {
+        if (matches(table)) addTable(table)
+      }
+    }
   }
-
-  def getPattern(): String = pattern
-
-  def init(): Unit = {
-    begin = pattern.indexOf("${table}")
-    postfix = Strings.substringAfter(pattern, "${table}")
-  }
-
 }

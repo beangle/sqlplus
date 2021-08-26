@@ -41,6 +41,6 @@ Edit config file(oracle to postgresql etc.)
 
 Download scripts 
 
-    wget https://github.com/beangle/db/tree/main/transport/src/main/scripts/transport.sh
+    wget https://raw.githubusercontent.com/beangle/db/main/transport/src/main/scripts/transport.sh
     chmod +x transport.sh
     ./transport.sh /path/to/your.xml

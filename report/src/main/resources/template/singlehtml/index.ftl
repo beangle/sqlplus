@@ -1,9 +1,12 @@
 [#ftl]
 [#include "include/head.ftl"/]
 [#include "include/table.ftl"/]
-[#include "include/module.ftl"/]
+[#include "include/group.ftl"/]
 
-<div class="container-narrow">
+[#assign allImages = report.allImages/]
+[#assign allSequences= report.allSequences/]
+[#assign idx=0/]
+<div class="container">
  <div class="content">
   <div class="page-header">
    <h1>${report.system.name} ${report.system.version!} ${report.title} </h1>
@@ -14,17 +17,18 @@
 
     <h4>目 录</h4>
 
-    <h5>1. 数据库对象列表</h5>
+    <h5>1. 数据库对象</h5>
     <ul>
+      [#assign idx=2/]
       <li><a href="#table_list">1.1 表格一览</a></li>
-      <li><a href="#sequence_list">1.2 序列一览</a></li>
-      <li><a href="#image_list">1.3 模块关系图</a></li>
+      [#if allSequences?size >0 ]<li><a href="#sequence_list">1.${idx} [#assign idx=dix+1/] 序列一览</a></li>[/#if]
+      [#if allImages?size >0]<li><a href="#image_list">1.${idx} [#assign idx=idx+1/] 模块关系图</a></li>[/#if]
     </ul>
 
-    <h5>2. 具体模块明细</h5>
+    <h5>2. 模块列表</h5>
     <ul>
-    [#list report.modules as m]
-    [@moduletree "2."+(m_index+1),m;prefix,module/]
+    [#list report.allGroups as m]
+    [@grouptree "2."+(m_index+1),m;prefix,group/]
     [/#list]
     </ul>
 
@@ -34,12 +38,16 @@
 
     [#include "include/tables.ftl"/]
 
+    [#if allSequences?size >0 ]
     <h4 id="sequence_list">2.2 序列一览</h4>
 
     [#include "include/sequences.ftl"/]
+    [/#if]
 
-    <h4 id="image_list">2.3 模块关系图</h4>
-    [#list report.images as img]
+
+   [#if allImages?size>0]
+    <h4 id="image_list">[#if allSequences?size >0 ]2.3[#else]2.2[/#if] 模块关系图</h4>
+    [#list allImages as img]
 
     <h4>${img_index+1}. ${img.title}</h4>
     <ul>
@@ -53,11 +61,12 @@
     <p>${img.description}</p>
     [/#if]
     [/#list]
+   [/#if]
 
     <h3>3. 具体模块明细</h3>
 
-    [#list report.modules as m]
-    [@moduletables "3."+(m_index+1),m;prefix,module/]
+    [#list report.allGroups as m]
+    [@grouptables "3."+(m_index+1),m;prefix,group/]
     [/#list]
 
    </div>

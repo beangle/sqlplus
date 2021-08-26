@@ -1,26 +1,26 @@
 /*
- * Beangle, Agile Development Scaffold and Toolkits.
- *
- * Copyright © 2005, The Beangle Software.
+ * Copyright (C) 2005, The Beangle Software.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.beangle.db.transport
 
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.DataSourceUtils
+import org.beangle.data.jdbc.engine.StoreCase
 import org.beangle.data.jdbc.meta.{Constraint, Table}
 import org.beangle.db.transport.Config.Source
 import org.beangle.db.transport.schema._
@@ -81,7 +81,9 @@ class Reactor(val config: Config) extends Logging {
     val sequences = sourceWrapper.schema.filterSequences(config.source.sequence.includes, config.source.sequence.excludes)
     sequences foreach { n =>
       n.schema = config.target.getSchema
-      n.toCase(config.source.sequence.lowercase)
+      if (config.target.engine.storeCase != StoreCase.Mixed) {
+        n.toCase(config.target.engine.storeCase == StoreCase.Lower)
+      }
       n.attach(config.target.engine)
     }
     sequenceConverter.addAll(sequences)
@@ -111,8 +113,8 @@ class Reactor(val config: Config) extends Logging {
     for (srcTable <- tables) {
       val targetTable = srcTable.clone()
       targetTable.updateSchema(targetWrapper.schema)
-      if (source.table.lowercase) {
-        targetTable.toCase(true)
+      if (config.target.engine.storeCase != StoreCase.Mixed) {
+        targetTable.toCase(config.target.engine.storeCase == StoreCase.Lower)
       }
       targetTable.attach(targetWrapper.engine)
       tablePairs.put(targetTable.name.toString, (srcTable -> targetTable))

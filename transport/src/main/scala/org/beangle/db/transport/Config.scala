@@ -1,21 +1,20 @@
 /*
- * Beangle, Agile Development Scaffold and Toolkits.
- *
- * Copyright © 2005, The Beangle Software.
+ * Copyright (C) 2005, The Beangle Software.
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.beangle.db.transport
 
 import org.beangle.commons.lang.{Numbers, Strings}
@@ -73,7 +72,6 @@ object Config {
     source.schema = dbconf.schema
     source.catalog = dbconf.catalog
     val tableConfig = new TableConfig
-    tableConfig.lowercase = "true" == (xml \\ "tables" \ "@lowercase").text
     tableConfig.withIndex = "false" != (xml \\ "tables" \ "@index").text
     tableConfig.withConstraint = "false" != (xml \\ "tables" \ "@constraint").text
     tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim.toLowerCase).toSeq
@@ -83,7 +81,6 @@ object Config {
     val seqConfig = new SeqConfig
     seqConfig.includes = Strings.split((xml \\ "sequences" \\ "includes").text.trim).toSeq
     seqConfig.excludes = Strings.split((xml \\ "sequences" \\ "excludes").text.trim).toSeq
-    seqConfig.lowercase = "true" == (xml \\ "sequences" \ "@lowercase").text
     source.sequence = seqConfig
 
     source
@@ -115,7 +112,6 @@ object Config {
   final class TableConfig {
     var includes: Seq[String] = _
     var excludes: Seq[String] = _
-    var lowercase: Boolean = true
     var withIndex: Boolean = true
     var withConstraint: Boolean = true
   }
@@ -123,7 +119,6 @@ object Config {
   final class SeqConfig {
     var includes: Seq[String] = _
     var excludes: Seq[String] = _
-    var lowercase: Boolean = false
   }
 
   class SchemaHolder(val engine: Engine, val dataSource: DataSource) {

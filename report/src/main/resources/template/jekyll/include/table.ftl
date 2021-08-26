@@ -37,7 +37,13 @@
     <td>[#assign finded=false][#t/]
         [#list table.foreignKeys as fk]
         [#if !finded]
-        [#list fk.columns as fcol][#if fcol.value==col.name]${fk.referencedTable.schema.name?lower_case}.${fk.referencedTable.name.value?lower_case}[#assign finded=true][#break/][/#if][/#list][#t/]
+        [#list fk.columns as fcol]
+          [#if fcol.value==col.name]
+             [#assign fkt=fk.referencedTable/]
+           <a href="${report.refTableUrl(fkt)}">${fkt.schema.name?lower_case}.${fkt.name.value?lower_case}</a>
+           [#assign finded=true][#break/]
+          [/#if]
+        [/#list][#t/]
         [/#if]
         [/#list]
     </td>[#t/]
@@ -58,7 +64,7 @@
   <tr>[#t/]
     <td>${uk_index+1}</td>[#t/]
     <td>${uk.name.value?lower_case}</td>[#t/]
-    <td>[#list uk.columns as c]${c?lower_case}&nbsp;[/#list]</td>[#t/]
+    <td>[#list uk.columns as c]${c?lower_case}[#if c_has_next],[/#if][/#list]</td>[#t/]
   </tr>
   [/#list]
 </table>
@@ -76,7 +82,7 @@
   [#list table.indexes as idx]
   <tr>[#t/]
     <td>${idx.name.value?lower_case}</td>[#t/]
-    <td>[#list idx.columns as c]${c.value?lower_case}&nbsp;[/#list]</td>[#t/]
+    <td>[#list idx.columns as c]${c.value?lower_case}[#if c_has_next],[/#if][/#list]</td>[#t/]
     <td>${idx.unique?string("是","否")}</td>[#t/]
   </tr>
   [/#list]
