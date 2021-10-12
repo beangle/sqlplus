@@ -16,15 +16,15 @@ ThisBuild / developers := List(
     id    = "chaostone",
     name  = "Tihua Duan",
     email = "duantihua@gmail.com",
-    url   = url("http://github.com/duantihua")
+    url   = url("http://github.com/duansourceDirectoriestihua")
   )
 )
 
 ThisBuild / description := "The Beangle DB Library"
 ThisBuild / homepage := Some(url("https://beangle.github.io/db/index.html"))
 
-val beangle_data_jdbc = "org.beangle.data" %% "beangle-data-jdbc" % "5.3.24"
-val beangle_template_freemarker = "org.beangle.template" %% "beangle-template-freemarker" % "0.0.33"
+val beangle_data_jdbc = "org.beangle.data" %% "beangle-data-jdbc" % "5.3.25"
+val beangle_template_freemarker = "org.beangle.template" %% "beangle-template-freemarker" % "0.0.34"
 val commonDeps = Seq(logback_classic, logback_core, beangle_data_jdbc, scalatest)
 
 lazy val root = (project in file("."))
