@@ -34,17 +34,20 @@ object Reporter extends Logging {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 1) {
-      logger.info("Usage: Reporter /path/to/your/report.xml -debug")
+      logger.info("Usage: Reporter /path/to/your/report.xml [target] -debug")
       return
     }
 
     val reportxml = new File(args(0))
-    val target = reportxml.getParent
+    val target =
+      if (args.length > 1 && args(1) != "-debug") args(1)
+      else reportxml.getParent
+
     logger.info(s"All wiki and images will be generated in $target")
     val reporter = new Reporter(Report(args(0)), target)
     reporter.filterTables()
 
-    val debug = if (args.length > 1) args(1) == "-debug" else false
+    val debug = args.contains("-debug")
     if (debug) {
       logger.info("Debug Mode:Type gen to generate report again,or q or exit to quit!")
       var command = "gen"
@@ -104,14 +107,14 @@ class Reporter(val report: Report, val dir: String) extends Logging {
   }
 
   def genWiki(): Unit = {
-    if(report.template=="singlehtml"){
-        val data = new collection.mutable.HashMap[String, Any]
-        data += ("engine" -> report.database.engine)
-        data += ("tablesMap" -> report.allTables)
-        data += ("report" -> report)
-        data += ("sequences" -> report.allSequences)
-        render(data, "index", dir)
-    }else {
+    if (report.template == "singlehtml") {
+      val data = new collection.mutable.HashMap[String, Any]
+      data += ("engine" -> report.database.engine)
+      data += ("tablesMap" -> report.allTables)
+      data += ("report" -> report)
+      data += ("sequences" -> report.allSequences)
+      render(data, "index", dir)
+    } else {
       for (rs <- report.schemas; s <- rs.modules) {
         logger.info(s"rendering module ${s.id}")
         val schema = report.database.getSchema(rs.name).get
@@ -152,7 +155,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
         data += ("module" -> s)
         data += ("report" -> report)
 
-        val imageBase = (if(report.template =="singlehtml") dir else moduleBaseDir(s)) + / + "images"
+        val imageBase = (if (report.template == "singlehtml") dir else moduleBaseDir(s)) + / + "images"
         s.images foreach { image =>
           data.put("image", image)
           val javafile = new File(imageBase + / + image.name + ".java")
@@ -163,7 +166,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
           fw.close()
         }
         OptionFlags.getInstance().setSystemExit(false)
-        Run.main(Array(imageBase))
+        Run.main(Array(imageBase,"-charset","UTF-8"))
         s.images foreach { image =>
           val javafile = new File(imageBase + / + image.name + ".java")
           javafile.delete()
@@ -177,7 +180,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
     dir + / + module.schema.name + packageName
   }
 
-  private def render(data: collection.mutable.HashMap[String, Any], template: String, base:String, result: String = ""): Unit = {
+  private def render(data: collection.mutable.HashMap[String, Any], template: String, base: String, result: String = ""): Unit = {
     val wikiResult = if (isEmpty(result)) template else result
     val file = new File(base + / + wikiResult + report.extension)
     file.getParentFile.mkdirs()
