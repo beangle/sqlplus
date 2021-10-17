@@ -2,7 +2,7 @@ import org.beangle.parent.Dependencies._
 import org.beangle.parent.Settings._
 
 ThisBuild / organization := "org.beangle.db"
-ThisBuild / version := "0.0.12"
+ThisBuild / version := "0.0.13"
 
 ThisBuild / scmInfo := Some(
   ScmInfo(
@@ -16,7 +16,7 @@ ThisBuild / developers := List(
     id    = "chaostone",
     name  = "Tihua Duan",
     email = "duantihua@gmail.com",
-    url   = url("http://github.com/duansourceDirectoriestihua")
+    url   = url("http://github.com/duantihua")
   )
 )
 
@@ -51,4 +51,5 @@ lazy val transport = (project in file("transport"))
     common,
     libraryDependencies ++= (commonDeps ++ Seq(postgresql,h2,jtds,ojdbc11,orai18n,mysql_connector_java,mssql_jdbc,HikariCP))
   )
+
 publish / skip := true
