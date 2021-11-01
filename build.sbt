@@ -42,6 +42,7 @@ lazy val report = (project in file("report"))
   .settings(
     name := "beangle-db-report",
     common,
+    Compile / mainClass := Some("org.beangle.db.report.Reporter"),
     libraryDependencies ++= (commonDeps ++ Seq(HikariCP,beangle_template_freemarker,postgresql,plantuml))
   )
 
@@ -49,6 +50,7 @@ lazy val transport = (project in file("transport"))
   .settings(
     name := "beangle-db-transport",
     common,
+    Compile / mainClass := Some("org.beangle.db.transport.Reactor"),
     libraryDependencies ++= (commonDeps ++ Seq(postgresql,h2,jtds,ojdbc11,orai18n,mysql_connector_java,mssql_jdbc,HikariCP))
   )
 
