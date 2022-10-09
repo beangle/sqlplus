@@ -23,8 +23,9 @@ import org.beangle.commons.io.Files
 import org.beangle.commons.lang.Strings
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
-import org.beangle.data.jdbc.meta._
-import org.beangle.db.report.model.{Schema => ReportSchema}
+import org.beangle.data.jdbc.engine.Engines
+import org.beangle.data.jdbc.meta.*
+import org.beangle.db.report.model.Schema as ReportSchema
 
 import java.io.{File, FileInputStream}
 
@@ -36,12 +37,12 @@ object Report {
     var database: Database = null
     if ((xml \ "db").nonEmpty) {
       val dbconf = DataSourceUtils.parseXml(xml)
-      database = new Database(dbconf.engine)
+      database = new Database(Engines.forName(dbconf.driver))
       val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
       val schema = new Schema(database, dbconf.schema)
 
       val meta = ds.getConnection().getMetaData
-      val loader = new MetadataLoader(meta, dbconf.engine)
+      val loader = new MetadataLoader(meta, Engines.forDataSource(ds))
       loader.loadTables(schema, extras = true)
       loader.loadSequences(schema)
       DataSourceUtils.close(ds)

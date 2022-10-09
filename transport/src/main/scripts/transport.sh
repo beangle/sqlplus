@@ -6,7 +6,7 @@ if [ $# -eq 0 ]; then
 fi
 
 if [ -z "$M2_REMOTE_REPO" ]; then
-  export M2_REMOTE_REPO="https://maven.aliyun.com/nexus/content/groups/public"
+  export M2_REMOTE_REPO="https://maven.aliyun.com/repository/public"
 fi
 if [ -z "$M2_REPO" ]; then
   export M2_REPO="$HOME/.m2/repository"
@@ -21,6 +21,7 @@ download(){
   local local_file="$M2_REPO/$group_id/$2/$3/$2-$3.jar"
   bootpath+=":"$local_file
 
+  echo $local_file
   if [ ! -f $local_file ]; then
     if wget --spider $URL 2>/dev/null; then
       echo "fetching $URL"
@@ -40,31 +41,33 @@ download(){
   fi
 }
 
-export scala_ver=2.13.3
-export beangle_commons_ver=5.2.3
-export beangle_template_ver=0.0.31
-export slf4j_ver=2.0.0-alpha1
-export logback_ver=1.3.0-alpha5
-export commons_compress_ver=1.19
-export boot_ver=0.0.20
-export beangle_db_ver=0.0.10
+export scala_ver=2.13.8
+export scala3_ver=3.2.0
+export beangle_commons_ver=5.4.0
+export beangle_template_ver=0.1.0
+export slf4j_ver=2.0.1
+export logback_ver=1.4.3
+export commons_compress_ver=1.21
+export boot_ver=0.1.0
+export beangle_db_ver=0.0.16-SNAPSHOT
 
 download org.scala-lang scala-library $scala_ver
 download org.scala-lang scala-reflect $scala_ver
-download org.beangle.commons beangle-commons-core_2.13  $beangle_commons_ver
-download org.beangle.commons beangle-commons-file_2.13  $beangle_commons_ver
+download org.scala-lang scala3-library_3 $scala3_ver
+download org.beangle.commons beangle-commons-core_3  $beangle_commons_ver
+download org.beangle.commons beangle-commons-file_3  $beangle_commons_ver
 download org.apache.commons commons-compress $commons_compress_ver
-download org.beangle.boot beangle-boot_2.13 $boot_ver
+download org.beangle.boot beangle-boot_3 $boot_ver
 download org.slf4j slf4j-api $slf4j_ver
 download ch.qos.logback logback-core $logback_ver
 download ch.qos.logback logback-classic $logback_ver
-download org.beangle.db beangle-db-transport  $beangle_db_ver
+download org.beangle.db beangle-db-transport_3 $beangle_db_ver
 
-jarfile="$M2_REPO/org/beangle/db/beangle-db-transport/$beangle_db_ver/beangle-db-transport-$beangle_db_ver.jar"
+jarfile="$M2_REPO/org/beangle/db/beangle-db-transport_3/$beangle_db_ver/beangle-db-transport_3-$beangle_db_ver.jar"
 
 if [[ -f $jarfile ]];then
   args="$@"
-  java -cp "${bootpath:1}" org.beangle.boot.artifact.AppResolver $jarfile $M2_REMOTE_REPO $M2_REPO
+  java -cp "${bootpath:1}" org.beangle.boot.dependency.AppResolver $jarfile --remote=$M2_REMOTE_REPO --local=$M2_REPO
   info=`java -cp "${bootpath:1}" org.beangle.boot.launcher.Classpath $jarfile $M2_REPO`
   if [ $? = 0 ]; then
     mainclass="${info%@*}"
@@ -77,4 +80,3 @@ if [[ -f $jarfile ]];then
 else
   echo "Cannot find $jarfile,Transportation aborted."
 fi
-

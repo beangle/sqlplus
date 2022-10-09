@@ -37,16 +37,9 @@ class IndexConverter(val source: SchemaWrapper, val target: SchemaWrapper) exten
     for (table <- tables) {
       for (index <- table.indexes) {
         try {
-          val isPK = table.primaryKey match {
-            case None => false
-            case Some(pk) => index.name == pk.name
-          }
+          val isPK = table.primaryKey.exists(x => x.name == index.name)
           indexCount += 1
-          if (isPK) {
-            executor.update(engine.alterTableAddPrimaryKey(table, table.primaryKey.get))
-          } else {
-            executor.update(engine.createIndex(index))
-          }
+          if !isPK then executor.update(engine.createIndex(index))
           logger.info(s"Create index ${index.name}")
         } catch {
           case e: Exception =>

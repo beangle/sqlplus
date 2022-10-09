@@ -22,12 +22,12 @@ import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.meta.{Constraint, ForeignKey, PrimaryKey}
 import org.beangle.db.transport.Converter
 
-class ConstraintConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
+class PrimaryKeyConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
 
-  private val constraints = new collection.mutable.ListBuffer[Constraint]
+  private val primaryKeys = new collection.mutable.ListBuffer[PrimaryKey]
 
-  def addConstraints(newContraints: Seq[Constraint]): Unit = {
-    constraints ++= newContraints
+  def addPrimaryKeys(newPks: Seq[PrimaryKey]): Unit = {
+    primaryKeys ++= newPks
   }
 
   def reset(): Unit = {
@@ -36,19 +36,16 @@ class ConstraintConverter(val source: SchemaWrapper, val target: SchemaWrapper) 
 
   def start(): Unit = {
     val watch = new Stopwatch(true)
-    logger.info("Start constraint replication...")
-    for (constraint <- constraints.sorted) {
-      constraint match {
-        case fk: ForeignKey =>
-          val sql = target.engine.alterTableAddForeignKey(fk)
-          try {
-            target.executor.update(sql)
-            logger.info(s"Apply constraint ${fk.name}")
-          } catch {
-            case e: Exception => logger.warn(s"Cannot execute $sql")
-          }
+    logger.info("Starting apply primary keys...")
+    for (pk <- primaryKeys.sorted) {
+      val sql = target.engine.alterTableAddPrimaryKey(pk.table, pk)
+      try {
+        target.executor.update(sql)
+        logger.info(s"Apply Primary key ${pk.name}")
+      } catch {
+        case e: Exception => logger.warn(s"Cannot execute $sql")
       }
     }
-    logger.info(s"End constraint replication,using $watch")
+    logger.info(s"End primary replication,using $watch")
   }
 }

@@ -19,7 +19,7 @@ package org.beangle.db.transport
 
 import org.beangle.commons.lang.{Numbers, Strings}
 import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
-import org.beangle.data.jdbc.engine.Engine
+import org.beangle.data.jdbc.engine.{Engine, Engines}
 import org.beangle.data.jdbc.meta.{Database, Identifier, Schema}
 import org.beangle.db.transport.schema.SchemaWrapper
 
@@ -68,9 +68,10 @@ object Config {
   private def source(xml: scala.xml.Elem): Source = {
     val dbconf = DataSourceUtils.parseXml((xml \\ "source" \\ "db").head)
     val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
-    val source = new Source(dbconf.engine, ds)
-    source.schema = dbconf.schema
-    source.catalog = dbconf.catalog
+    val engine = Engines.forDataSource(ds)
+    val source = new Source(engine, ds)
+    source.schema = engine.toIdentifier(dbconf.schema.value)
+    source.catalog = engine.toIdentifier(dbconf.catalog.value)
     val tableConfig = new TableConfig
     tableConfig.withIndex = "false" != (xml \\ "tables" \ "@index").text
     tableConfig.withConstraint = "false" != (xml \\ "tables" \ "@constraint").text
@@ -89,7 +90,8 @@ object Config {
   private def target(xml: scala.xml.Elem): Target = {
     val dbconf = DataSourceUtils.parseXml((xml \\ "target" \\ "db").head)
 
-    val target = new Target(dbconf.engine, DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props))
+    val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
+    val target = new Target(Engines.forDataSource(ds), ds)
     target.schema = dbconf.schema
     target.catalog = dbconf.catalog
     target
@@ -127,7 +129,7 @@ object Config {
     var catalog: Identifier = _
 
     def getSchema: Schema = {
-      if (null == schema) schema = Identifier(engine.defaultSchema)
+      if (null == schema) schema = engine.toIdentifier(engine.defaultSchema)
       val rs = database.getOrCreateSchema(schema)
       rs.catalog = Option(catalog)
       rs

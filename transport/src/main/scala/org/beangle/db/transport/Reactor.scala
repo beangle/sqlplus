@@ -21,9 +21,9 @@ import org.beangle.commons.collection.Collections
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.DataSourceUtils
 import org.beangle.data.jdbc.engine.StoreCase
-import org.beangle.data.jdbc.meta.{Constraint, Table}
+import org.beangle.data.jdbc.meta.{Constraint, PrimaryKey, Table}
 import org.beangle.db.transport.Config.Source
-import org.beangle.db.transport.schema._
+import org.beangle.db.transport.schema.*
 
 import java.io.FileInputStream
 
@@ -54,7 +54,9 @@ class Reactor(val config: Config) extends Logging {
     }
 
     val loadextra = config.source.table.withIndex || config.source.table.withConstraint
+    logger.info("loading source metas")
     sourceWrapper.loadMetas(loadextra, true)
+    logger.info("loading target metas")
     targetWrapper.loadMetas(loadextra, true)
 
     val converters = new collection.mutable.ListBuffer[Converter]
@@ -65,6 +67,11 @@ class Reactor(val config: Config) extends Logging {
     dataConverter.addAll(tables)
 
     converters += dataConverter
+
+    val pkConverter = new PrimaryKeyConverter(sourceWrapper, targetWrapper)
+    pkConverter.addPrimaryKeys(filterPrimaryKeys(tables))
+    converters += pkConverter
+
     if (config.source.table.withIndex) {
       val indexConverter = new IndexConverter(sourceWrapper, targetWrapper)
       indexConverter.tables ++= tables.map(_._2)
@@ -72,9 +79,9 @@ class Reactor(val config: Config) extends Logging {
     }
 
     if (config.source.table.withConstraint) {
-      val contraintConverter = new ConstraintConverter(sourceWrapper, targetWrapper)
-      contraintConverter.addAll(filterConstraints(tables))
-      converters += contraintConverter
+      val constraintConverter = new ConstraintConverter(sourceWrapper, targetWrapper)
+      constraintConverter.addConstraints(filterConstraints(tables))
+      converters += constraintConverter
     }
 
     val sequenceConverter = new SequenceConverter(sourceWrapper, targetWrapper)
@@ -117,15 +124,24 @@ class Reactor(val config: Config) extends Logging {
         targetTable.toCase(config.target.engine.storeCase == StoreCase.Lower)
       }
       targetTable.attach(targetWrapper.engine)
-      tablePairs.put(targetTable.name.toString, (srcTable -> targetTable))
+      tablePairs.put(targetTable.name.toString, srcTable -> targetTable)
     }
     tablePairs.values.toList
   }
 
+  private def filterPrimaryKeys(tables: List[Tuple2[Table, Table]]): List[PrimaryKey] = {
+    val pks = new collection.mutable.ListBuffer[PrimaryKey]
+    for (table <- tables) {
+      pks ++= table._2.primaryKey
+    }
+    pks.toList
+  }
+
   private def filterConstraints(tables: List[Tuple2[Table, Table]]): List[Constraint] = {
     val contraints = new collection.mutable.ListBuffer[Constraint]
-    for (table <- tables)
+    for (table <- tables) {
       contraints ++= table._2.foreignKeys
+    }
     contraints.toList
   }
 
