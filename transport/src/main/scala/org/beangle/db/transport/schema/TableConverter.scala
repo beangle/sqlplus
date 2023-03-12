@@ -113,13 +113,13 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
     def makeClean(table: Table): Boolean = {
       val exists = target.get(table)
       exists match {
-        case None => createOrReplaceTable(table)
-        case Some(t) => if table.isSame(t) then target.truncate(table) else createOrReplaceTable(table)
+        case None => target.create(table)
+        case Some(t) =>
+          if table.isSameStruct(t) then target.truncate(t)
+          else {
+            if target.drop(table) then target.create(table) else false
+          }
       }
-    }
-
-    def createOrReplaceTable(table: Table): Boolean = {
-      if target.drop(table) then target.create(table) else false
     }
 
     def convert(pair: (Table, Table)): Unit = {

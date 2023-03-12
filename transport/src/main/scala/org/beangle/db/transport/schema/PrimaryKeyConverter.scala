@@ -41,7 +41,7 @@ class PrimaryKeyConverter(val source: SchemaWrapper, val target: SchemaWrapper) 
       val sql = target.engine.alterTableAddPrimaryKey(pk.table, pk)
       try {
         target.executor.update(sql)
-        logger.info(s"Apply Primary key ${pk.name}")
+        logger.info(s"Apply primary key ${pk.name}")
       } catch {
         case e: Exception => logger.warn(s"Cannot execute $sql")
       }

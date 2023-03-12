@@ -60,11 +60,11 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
         }
         table.uniqueKeys foreach { uk =>
           executor.update(engine.alterTableDropConstraint(table, uk.literalName))
-          logger.info(s"Drop unique key ${table.qualifiedName}.${uk.literalName}")
+          logger.info(s"Drop unique key ${uk.literalName} on ${table.qualifiedName}.")
         }
         table.indexes foreach { i =>
           executor.update(engine.dropIndex(i))
-          logger.info(s"Drop index ${table.qualifiedName}.${i.literalName}")
+          logger.info(s"Drop index ${i.literalName} on ${table.qualifiedName}.")
         }
         table.foreignKeys foreach { fk =>
           try {
@@ -72,7 +72,7 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
           } catch {
             case e: Throwable => //may be cascade drop by other table.
           }
-          logger.info(s"Drop Foreign key ${table.qualifiedName}.${fk.literalName}")
+          logger.info(s"Drop foreign key ${fk.literalName} on ${table.qualifiedName}.")
         }
         executor.update(engine.truncate(t))
       }
