@@ -17,8 +17,6 @@
 
 package org.beangle.db.transport.schema
 
-import java.util.concurrent.LinkedBlockingQueue
-
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.ThreadTasks
 import org.beangle.commons.lang.time.Stopwatch
@@ -26,6 +24,7 @@ import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.meta.Table
 import org.beangle.db.transport.{ConversionModel, Converter, DataWrapper}
 
+import java.util.concurrent.LinkedBlockingQueue
 import scala.collection.mutable.ListBuffer
 
 object TableConverter {
@@ -71,7 +70,7 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
     val watch = new Stopwatch(true)
     val tableCount = tables.length
     val buffer = new LinkedBlockingQueue[(Table, Table)]
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     buffer.addAll(tables.sortWith(_._1.name > _._1.name).asJava)
     logger.info(s"Start $tableCount tables data replication in $threads threads...")
     ThreadTasks.start(new ConvertTask(source, target, buffer), threads)
@@ -98,40 +97,29 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
         return false
       }
       if (model == ConversionModel.Recreate) {
-        createOrReplaceTable(table)
+        makeClean(table)
       } else {
         if (target.has(table)) {
-          if (target.count(table) == datacount) {
+          if target.count(table) == datacount then
             logger.info(s"Ignore table ${table.name} for same count.")
             false
-          } else {
-            createOrReplaceTable(table)
-          }
+          else makeClean(table)
         } else {
-          if (target.create(table)) {
-            logger.info(s"Create table ${table.name}")
-            true
-          } else {
-            logger.error(s"Create table ${table.name} failure.")
-            false
-          }
+          target.create(table)
         }
       }
     }
 
-    def createOrReplaceTable(table: Table): Boolean = {
-      if (target.drop(table)) {
-        if (target.create(table)) {
-          logger.info(s"Create table ${table.name}")
-          true
-        } else {
-          logger.error(s"Create table ${table.name} failure.")
-          false
-        }
-      } else {
-        logger.error(s"Cannot drop table ${table.name}.")
-        false
+    def makeClean(table: Table): Boolean = {
+      val exists = target.get(table)
+      exists match {
+        case None => createOrReplaceTable(table)
+        case Some(t) => if table.isSame(t) then target.truncate(table) else createOrReplaceTable(table)
       }
+    }
+
+    def createOrReplaceTable(table: Table): Boolean = {
+      if target.drop(table) then target.create(table) else false
     }
 
     def convert(pair: (Table, Table)): Unit = {
@@ -141,31 +129,31 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
         val count = source.count(srcTable)
         if (!processTable(targetTable, count)) return
 
-        if (count == 0) {
-          target.save(targetTable, List.empty)
-          logger.info(s"Insert $targetTable(0)")
-        } else {
-          val dataIter = source.get(srcTable)
-          val data = Collections.newBuffer[Array[Any]]
-          var curr = 0
-          try {
-            while (curr < count && dataIter.hasNext) {
-              data += dataIter.next()
-              curr += 1
-              if (curr % 10000 == 0) {
-                insert(targetTable, data, curr, count)
-                data.clear()
+          if (count == 0) {
+            target.save(targetTable, List.empty)
+            logger.info(s"Insert $targetTable(0)")
+          } else {
+            val dataIter = source.select(srcTable)
+            val data = Collections.newBuffer[Array[Any]]
+            var curr = 0
+            try {
+              while (curr < count && dataIter.hasNext) {
+                data += dataIter.next()
+                curr += 1
+                if (curr % 10000 == 0) {
+                  insert(targetTable, data, curr, count)
+                  data.clear()
+                }
               }
+              if (data.nonEmpty) {
+                insert(targetTable, data, curr, count)
+              }
+            } catch {
+              case e: Exception => logger.error(s"Insert error ${targetTable.qualifiedName}", e)
+            } finally {
+              dataIter.close()
             }
-            if (data.nonEmpty) {
-              insert(targetTable, data, curr, count)
-            }
-          } catch {
-            case e: Exception => logger.error(s"Insert error ${targetTable.qualifiedName}", e)
-          } finally {
-            dataIter.close()
           }
-        }
       } catch {
         case e: Exception => logger.error(s"Insert error ${targetTable.qualifiedName}", e)
       }

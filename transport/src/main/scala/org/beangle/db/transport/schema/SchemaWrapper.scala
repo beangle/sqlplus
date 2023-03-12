@@ -17,15 +17,15 @@
 
 package org.beangle.db.transport.schema
 
-import java.sql.Connection
-
-import javax.sql.DataSource
 import org.beangle.commons.io.IOs
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.engine.Engine
 import org.beangle.data.jdbc.meta.{MetadataLoader, Schema, Sequence, Table}
 import org.beangle.data.jdbc.query.{JdbcExecutor, ResultSetIterator}
 import org.beangle.db.transport.DataWrapper
+
+import java.sql.Connection
+import javax.sql.DataSource
 
 class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: Schema)
   extends DataWrapper with Logging {
@@ -47,29 +47,66 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
     schema.getTable(table.name.value).isDefined
   }
 
+  override def get(table: Table): Option[Table] = {
+    schema.getTable(table.name.value)
+  }
+
+  override def truncate(table: Table): Boolean = {
+    try
+      schema.getTable(table.name.value) foreach { t =>
+        table.primaryKey foreach { pk =>
+          executor.update(engine.alterTableDropPrimaryKey(t, pk))
+          logger.info(s"Drop primary key ${table.qualifiedName}.${pk.literalName}")
+        }
+        table.uniqueKeys foreach { uk =>
+          executor.update(engine.alterTableDropConstraint(table, uk.literalName))
+          logger.info(s"Drop unique key ${table.qualifiedName}.${uk.literalName}")
+        }
+        table.indexes foreach { i =>
+          executor.update(engine.dropIndex(i))
+          logger.info(s"Drop index ${table.qualifiedName}.${i.literalName}")
+        }
+        table.foreignKeys foreach { fk =>
+          try {
+            executor.update(engine.alterTableDropConstraint(table, fk.literalName))
+          } catch {
+            case e: Throwable => //may be cascade drop by other table.
+          }
+          logger.info(s"Drop Foreign key ${table.qualifiedName}.${fk.literalName}")
+        }
+        executor.update(engine.truncate(t))
+      }
+      logger.info(s"Truncate table ${table.name}")
+      true
+    catch
+      case e: Exception =>
+        logger.error(s"Truncate table ${table.name} failed", e)
+        false
+  }
+
   override def drop(table: Table): Boolean = {
-    try {
+    try
       schema.getTable(table.name.value) foreach { t =>
         schema.tables.remove(t.name)
         executor.update(engine.dropTable(t.qualifiedName))
+        logger.info(s"Drop table ${table.name}")
       }
       true
-    } catch {
+    catch
       case e: Exception =>
         logger.error(s"Drop table ${table.name} failed", e)
         false
-    }
   }
 
   override def create(table: Table): Boolean = {
     if (schema.getTable(table.name.value).isEmpty) {
-      try {
+      try
         executor.update(engine.createTable(table))
-      } catch {
+        logger.info(s"Create table ${table.name}")
+      catch
         case e: Exception =>
           logger.error(s"Cannot create table ${table.name}", e)
           return false
-      }
     }
     true
   }
@@ -102,19 +139,19 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
     }
   }
 
-  def count(table: Table): Int = {
+  override def count(table: Table): Int = {
     executor.queryForInt("select count(*) from " + table.qualifiedName + " tb").get
   }
 
-  def get(table: Table): ResultSetIterator = {
+  override def select(table: Table): ResultSetIterator = {
     executor.iterate(engine.query(table))
   }
 
-  def save(table: Table, datas: collection.Seq[Array[_]]): Int = {
+  override def save(table: Table, datas: collection.Seq[Array[_]]): Int = {
     val types = for (column <- table.columns) yield column.sqlType.code
     val insertSql = engine.insert(table)
     executor.batch(insertSql, datas, types.toSeq).length
   }
 
-  def close(): Unit = {}
+  override def close(): Unit = {}
 }

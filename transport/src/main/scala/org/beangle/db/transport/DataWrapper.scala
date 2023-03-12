@@ -22,9 +22,13 @@ import org.beangle.data.jdbc.query.ResultSetIterator
 
 trait DataWrapper {
 
-  def get(table: Table): ResultSetIterator
+  def select(table: Table): ResultSetIterator
+
+  def get(table: Table): Option[Table]
 
   def has(table: Table): Boolean
+
+  def truncate(table: Table): Boolean
 
   def drop(table: Table): Boolean
 

@@ -23,7 +23,7 @@ ThisBuild / developers := List(
 ThisBuild / description := "The Beangle DB Library"
 ThisBuild / homepage := Some(url("https://beangle.github.io/db/index.html"))
 
-val beangle_data_jdbc = "org.beangle.data" %% "beangle-data-jdbc" % "5.6.5"
+val beangle_data_jdbc = "org.beangle.data" %% "beangle-data-jdbc" % "5.6.6"
 val beangle_template_freemarker = "org.beangle.template" %% "beangle-template-freemarker" % "0.1.4"
 val commonDeps = Seq(logback_classic, logback_core, beangle_data_jdbc, scalatest)
 
