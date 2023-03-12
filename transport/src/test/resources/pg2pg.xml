@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<conversion maxthreads="10" >
+  <source>
+    <db>
+      <driver>postgresql</driver>
+      <url>jdbc:postgresql://localhost:5432/sample</url>
+      <user>postgres</user>
+      <password>postgres</password>
+      <schema>ems</schema>
+    </db>
+    <tables lowercase="true" index="true" constraint="true">
+      <includes>*</includes>
+      <excludes></excludes>
+    </tables>
+  </source>
+
+  <target>
+    <db>
+      <driver>postgresql</driver>
+      <url>jdbc:postgresql://localhost:5432/sample</url>
+      <user>postgres</user>
+      <password>postgres</password>
+      <schema>ems1</schema>
+    </db>
+  </target>
+</conversion>
