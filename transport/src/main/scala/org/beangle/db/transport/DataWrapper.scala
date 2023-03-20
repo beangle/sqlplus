@@ -26,6 +26,10 @@ trait DataWrapper {
 
   def get(table: Table): Option[Table]
 
+  def clean(table:Table):Boolean
+
+  def cleanForeignKeys(table: Table): Unit
+
   def has(table: Table): Boolean
 
   def truncate(table: Table): Boolean

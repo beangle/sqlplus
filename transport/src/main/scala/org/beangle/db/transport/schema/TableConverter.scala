@@ -69,6 +69,10 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
   def start(): Unit = {
     val watch = new Stopwatch(true)
     val tableCount = tables.length
+    //set up all target table
+    tables.foreach { case (src, tar) => target.cleanForeignKeys(tar) }
+    tables.foreach { case (src, tar) => target.clean(tar) }
+
     val buffer = new LinkedBlockingQueue[(Table, Table)]
     import scala.jdk.CollectionConverters.*
     buffer.addAll(tables.sortWith(_._1.name > _._1.name).asJava)
@@ -94,33 +98,16 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
     private def processTable(table: Table, datacount: Int): Boolean = {
       if (datacount < dataRange._1 || dataRange._2 < datacount) {
         logger.info(s"Ignore table ${table.name} for count ${datacount}")
-        return false
-      }
-      if (model == ConversionModel.Recreate) {
-        makeClean(table)
+        false
       } else {
-        if (target.has(table)) {
-          if target.count(table) == datacount then
-            logger.info(s"Ignore table ${table.name} for same count.")
-            false
-          else makeClean(table)
-        } else {
-          target.create(table)
-        }
+        if model == ConversionModel.Recreate || target.count(table) != datacount then
+          target.truncate(table)
+          true
+        else
+          false
       }
     }
 
-    def makeClean(table: Table): Boolean = {
-      val exists = target.get(table)
-      exists match {
-        case None => target.create(table)
-        case Some(t) =>
-          if table.isSameStruct(t) then target.truncate(t)
-          else {
-            if target.drop(table) then target.create(table) else false
-          }
-      }
-    }
 
     def convert(pair: (Table, Table)): Unit = {
       val srcTable = pair._1

@@ -58,6 +58,7 @@ class Reactor(val config: Config) extends Logging {
     sourceWrapper.loadMetas(loadextra, true)
     logger.info("loading target metas")
     targetWrapper.loadMetas(loadextra, true)
+    targetWrapper.createSchema()
 
     val converters = new collection.mutable.ListBuffer[Converter]
 

@@ -18,6 +18,7 @@
 package org.beangle.db.transport.schema
 
 import org.beangle.commons.io.IOs
+import org.beangle.commons.lang.Strings
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.engine.Engine
 import org.beangle.data.jdbc.meta.{MetadataLoader, Schema, Sequence, Table}
@@ -43,6 +44,15 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
     }
   }
 
+  def createSchema(): Unit = {
+    val loader = new MetadataLoader(dataSource.getConnection.getMetaData, engine)
+    val schemas = loader.schemas()
+    if (!schemas.map(_.toLowerCase).contains(schema.name.value.toLowerCase)) {
+      val createSchemaSql = engine.createSchema(schema.name.toString)
+      if Strings.isNotBlank(createSchemaSql) then executor.update(createSchemaSql)
+    }
+  }
+
   override def has(table: Table): Boolean = {
     schema.getTable(table.name.value).isDefined
   }
@@ -51,32 +61,67 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
     schema.getTable(table.name.value)
   }
 
+  override def clean(table: Table): Boolean = {
+    get(table) match {
+      case None => create(table)
+      case Some(t) =>
+        if table.isSameStruct(t) then cleanSelfKeys(t)
+        else {
+          drop(table)
+          create(table)
+        }
+    }
+    schema.addTable(table)
+    true
+  }
+
+  override def cleanForeignKeys(table: Table): Unit = {
+    get(table) foreach { t =>
+      //drop foreign keys first may cause some index dropped.
+      //so put them before index drop.
+      t.foreignKeys foreach { fk =>
+        try {
+          executor.update(engine.alterTableDropConstraint(table, fk.literalName))
+        } catch {
+          case e: Throwable => //may be cascade drop by other table.
+        }
+        logger.debug(s"Drop foreign key ${fk.literalName} on ${table.qualifiedName}.")
+      }
+    }
+  }
+
+
+  private def cleanSelfKeys(table: Table): Unit = {
+    try
+      schema.getTable(table.name.value) foreach { t =>
+        t.primaryKey foreach { pk =>
+          executor.update(engine.alterTableDropPrimaryKey(t, pk))
+          logger.debug(s"Drop primary key ${table.qualifiedName}.${pk.literalName}")
+        }
+        t.uniqueKeys foreach { uk =>
+          executor.update(engine.alterTableDropConstraint(table, uk.literalName))
+          logger.debug(s"Drop unique key ${uk.literalName} on ${table.qualifiedName}.")
+        }
+        t.indexes foreach { i =>
+          try {
+            executor.update(engine.dropIndex(i))
+          } catch {
+            case e: Throwable => //may be cascade drop by other foreign keys.
+          }
+          logger.debug(s"Drop index ${i.literalName} on ${table.qualifiedName}.")
+        }
+      }
+      logger.info(s"Clean table ${table.qualifiedName}'s keys and constraints")
+    catch
+      case e: Exception => logger.error(s"Clean table ${table.name} 's keys failed", e)
+  }
+
   override def truncate(table: Table): Boolean = {
     try
       schema.getTable(table.name.value) foreach { t =>
-        table.primaryKey foreach { pk =>
-          executor.update(engine.alterTableDropPrimaryKey(t, pk))
-          logger.info(s"Drop primary key ${table.qualifiedName}.${pk.literalName}")
-        }
-        table.uniqueKeys foreach { uk =>
-          executor.update(engine.alterTableDropConstraint(table, uk.literalName))
-          logger.info(s"Drop unique key ${uk.literalName} on ${table.qualifiedName}.")
-        }
-        table.indexes foreach { i =>
-          executor.update(engine.dropIndex(i))
-          logger.info(s"Drop index ${i.literalName} on ${table.qualifiedName}.")
-        }
-        table.foreignKeys foreach { fk =>
-          try {
-            executor.update(engine.alterTableDropConstraint(table, fk.literalName))
-          } catch {
-            case e: Throwable => //may be cascade drop by other table.
-          }
-          logger.info(s"Drop foreign key ${fk.literalName} on ${table.qualifiedName}.")
-        }
         executor.update(engine.truncate(t))
+        logger.info(s"Truncate table ${table.name}")
       }
-      logger.info(s"Truncate table ${table.name}")
       true
     catch
       case e: Exception =>

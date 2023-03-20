@@ -16,11 +16,11 @@
 
   <target>
     <db>
-      <driver>postgresql</driver>
-      <url>jdbc:postgresql://localhost:5432/platform</url>
-      <user>postgres</user>
-      <password>postgres</password>
-      <schema>ems1</schema>
+      <driver>mysql</driver>
+      <url>jdbc:mysql://localhost:3306</url>
+      <user>root</user>
+      <password>mysql</password>
+      <schema>ems</schema>
     </db>
   </target>
 </conversion>

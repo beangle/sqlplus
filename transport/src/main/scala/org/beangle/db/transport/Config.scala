@@ -71,7 +71,7 @@ object Config {
     val engine = Engines.forDataSource(ds)
     val source = new Source(engine, ds)
     source.schema = engine.toIdentifier(dbconf.schema.value)
-    source.catalog = engine.toIdentifier(dbconf.catalog.value)
+    source.catalog = engine.toIdentifier(if null == dbconf.catalog then null else dbconf.catalog.value)
     val tableConfig = new TableConfig
     tableConfig.withIndex = "false" != (xml \\ "tables" \ "@index").text
     tableConfig.withConstraint = "false" != (xml \\ "tables" \ "@constraint").text
@@ -130,6 +130,7 @@ object Config {
 
     def getSchema: Schema = {
       if (null == schema) schema = engine.toIdentifier(engine.defaultSchema)
+      else schema = engine.toIdentifier(schema.value)
       val rs = database.getOrCreateSchema(schema)
       rs.catalog = Option(catalog)
       rs
