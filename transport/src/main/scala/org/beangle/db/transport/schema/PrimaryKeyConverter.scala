@@ -38,7 +38,7 @@ class PrimaryKeyConverter(val source: SchemaWrapper, val target: SchemaWrapper) 
     val watch = new Stopwatch(true)
     logger.info("Starting apply primary keys...")
     for (pk <- primaryKeys.sorted) {
-      val sql = target.engine.alterTableAddPrimaryKey(pk.table, pk)
+      val sql = target.engine.alterTable(pk.table).addPrimaryKey(pk)
       try {
         target.executor.update(sql)
         logger.info(s"Apply primary key ${pk.name}")

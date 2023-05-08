@@ -40,7 +40,7 @@ class ConstraintConverter(val source: SchemaWrapper, val target: SchemaWrapper) 
     for (constraint <- constraints.sorted) {
       constraint match {
         case fk: ForeignKey =>
-          val sql = target.engine.alterTableAddForeignKey(fk)
+          val sql = target.engine.alterTable(fk.table).addForeignKey(fk)
           try {
             target.executor.update(sql)
             logger.info(s"Apply constraint ${fk.name}")

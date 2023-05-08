@@ -2,7 +2,7 @@
 
 if [ $# -eq 0 ]; then
   echo "Usage:
-   transport.sh /path/to/config.xml"
+   validator.sh /path/to/validator.xml"
   exit 1
 fi
 
@@ -43,13 +43,13 @@ download(){
 
 export scala_ver=2.13.10
 export scala3_ver=3.2.2
-export beangle_commons_ver=5.5.0
+export beangle_commons_ver=5.5.1
 export beangle_template_ver=0.1.4
-export slf4j_ver=2.0.6
-export logback_ver=1.4.5
-export commons_compress_ver=1.22
+export slf4j_ver=2.0.7
+export logback_ver=1.4.7
+export commons_compress_ver=1.23.0
 export boot_ver=0.1.3
-export beangle_db_ver=0.0.19
+export beangle_db_ver=0.0.20
 
 download org.scala-lang scala-library $scala_ver
 download org.scala-lang scala-reflect $scala_ver
@@ -61,9 +61,9 @@ download org.beangle.boot beangle-boot_3 $boot_ver
 download org.slf4j slf4j-api $slf4j_ver
 download ch.qos.logback logback-core $logback_ver
 download ch.qos.logback logback-classic $logback_ver
-download org.beangle.db beangle-db-transport_3 $beangle_db_ver
+download org.beangle.db beangle-db-lint_3 $beangle_db_ver
 
-jarfile="$M2_REPO/org/beangle/db/beangle-db-transport_3/$beangle_db_ver/beangle-db-transport_3-$beangle_db_ver.jar"
+jarfile="$M2_REPO/org/beangle/db/beangle-db-lint_3/$beangle_db_ver/beangle-db-lint_3-$beangle_db_ver.jar"
 
 if [[ -f $jarfile ]];then
   args="$@"
@@ -78,5 +78,5 @@ if [[ -f $jarfile ]];then
      echo $info
   fi
 else
-  echo "Cannot find $jarfile,Transportation aborted."
+  echo "Cannot find $jarfile,Validation was aborted."
 fi

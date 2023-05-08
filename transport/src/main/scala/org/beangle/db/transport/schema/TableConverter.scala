@@ -108,7 +108,6 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
       }
     }
 
-
     def convert(pair: (Table, Table)): Unit = {
       val srcTable = pair._1
       val targetTable = pair._2

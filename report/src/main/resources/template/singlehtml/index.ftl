@@ -44,7 +44,6 @@
     [#include "include/sequences.ftl"/]
     [/#if]
 
-
    [#if allImages?size>0]
     <h4 id="image_list">[#if allSequences?size >0 ]2.3[#else]2.2[/#if] 模块关系图</h4>
     [#list allImages as img]

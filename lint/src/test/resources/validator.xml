@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<validate>
+  <db name="default">
+    <databaseName>shangyin</databaseName>
+    <portNumber>5432</portNumber>
+    <driver>postgresql</driver>
+    <user>postgres</user>
+    <password>postgres</password>
+    <maximumPoolSize>2</maximumPoolSize>
+  </db>
+  <basis file="database.xml"/>
+</validate>

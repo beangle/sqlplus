@@ -81,7 +81,7 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
       //so put them before index drop.
       t.foreignKeys foreach { fk =>
         try {
-          executor.update(engine.alterTableDropConstraint(table, fk.literalName))
+          executor.update(engine.alterTable(table).dropConstraint(fk.literalName))
         } catch {
           case e: Throwable => //may be cascade drop by other table.
         }
@@ -90,16 +90,15 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
     }
   }
 
-
   private def cleanSelfKeys(table: Table): Unit = {
     try
       schema.getTable(table.name.value) foreach { t =>
         t.primaryKey foreach { pk =>
-          executor.update(engine.alterTableDropPrimaryKey(t, pk))
+          executor.update(engine.alterTable(t).dropPrimaryKey(pk))
           logger.debug(s"Drop primary key ${table.qualifiedName}.${pk.literalName}")
         }
         t.uniqueKeys foreach { uk =>
-          executor.update(engine.alterTableDropConstraint(table, uk.literalName))
+          executor.update(engine.alterTable(table).dropConstraint(uk.literalName))
           logger.debug(s"Drop unique key ${uk.literalName} on ${table.qualifiedName}.")
         }
         t.indexes foreach { i =>
