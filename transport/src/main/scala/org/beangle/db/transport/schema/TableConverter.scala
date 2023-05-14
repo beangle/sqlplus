@@ -102,7 +102,6 @@ class TableConverter(val source: DataWrapper, val target: DataWrapper, val threa
       } else {
         if model == ConversionModel.Recreate || target.count(table) != datacount then
           target.truncate(table)
-          true
         else
           false
       }
