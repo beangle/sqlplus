@@ -19,7 +19,7 @@ Edit config file(oracle to postgresql etc.)
           <excludes></excludes>
         </tables>
       </source>
-    
+
       <target>
         <db>
           <driver>postgresql</driver>
@@ -39,8 +39,8 @@ Edit config file(oracle to postgresql etc.)
       </actions>
     </transport>
 
-Download scripts 
+Download scripts
 
-    wget https://raw.githubusercontent.com/beangle/db/main/transport/src/main/scripts/transport.sh
+    wget https://raw.githubusercontent.com/beangle/db/main/src/main/scripts/transport.sh
     chmod +x transport.sh
     ./transport.sh /path/to/your.xml
