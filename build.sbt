@@ -2,7 +2,7 @@ import org.beangle.parent.Dependencies._
 import org.beangle.parent.Settings._
 
 ThisBuild / organization := "org.beangle.db"
-ThisBuild / version := "0.0.23-SNAPSHOT"
+ThisBuild / version := "0.0.23"
 
 ThisBuild / scmInfo := Some(
   ScmInfo(
@@ -13,29 +13,31 @@ ThisBuild / scmInfo := Some(
 
 ThisBuild / developers := List(
   Developer(
-    id    = "chaostone",
-    name  = "Tihua Duan",
+    id = "chaostone",
+    name = "Tihua Duan",
     email = "duantihua@gmail.com",
-    url   = url("http://github.com/duantihua")
+    url = url("http://github.com/duantihua")
   )
 )
 
 ThisBuild / description := "The Beangle DB Library"
 ThisBuild / homepage := Some(url("https://beangle.github.io/db/index.html"))
 
-val beangle_data_jdbc = "org.beangle.data" %% "beangle-data-jdbc" % "5.6.16"
-val beangle_template_freemarker = "org.beangle.template" %% "beangle-template-freemarker" % "0.1.4"
+val beangle_data_jdbc = "org.beangle.data" %% "beangle-data-jdbc" % "5.6.21"
+val beangle_commons_core = "org.beangle.commons" %% "beangle-commons-core" % "5.5.4"
+val beangle_template_freemarker = "org.beangle.template" %% "beangle-template-freemarker" % "0.1.6"
 val commonDeps = Seq(logback_classic, logback_core, beangle_data_jdbc, scalatest)
 
 lazy val root = (project in file("."))
   .settings()
-  .aggregate(lint,report,transport)
+  .aggregate(lint, report, transport)
 
 lazy val lint = (project in file("lint"))
   .settings(
     name := "beangle-db-lint",
     common,
-    libraryDependencies ++= (commonDeps ++ Seq(postgresql,h2,jtds,ojdbc11,orai18n,mysql_connector_java,mssql_jdbc,HikariCP))
+    libraryDependencies ++= Seq(beangle_commons_core),
+    libraryDependencies ++= (commonDeps ++ Seq(postgresql, h2, jtds, ojdbc11, orai18n, mysql_connector_java, mssql_jdbc, HikariCP))
   )
 
 lazy val report = (project in file("report"))
@@ -43,7 +45,8 @@ lazy val report = (project in file("report"))
     name := "beangle-db-report",
     common,
     Compile / mainClass := Some("org.beangle.db.report.Reporter"),
-    libraryDependencies ++= (commonDeps ++ Seq(HikariCP,beangle_template_freemarker,postgresql,plantuml))
+    libraryDependencies ++= Seq(beangle_commons_core, beangle_template_freemarker),
+    libraryDependencies ++= (commonDeps ++ Seq(HikariCP, postgresql, plantuml))
   )
 
 lazy val transport = (project in file("transport"))
@@ -51,7 +54,8 @@ lazy val transport = (project in file("transport"))
     name := "beangle-db-transport",
     common,
     Compile / mainClass := Some("org.beangle.db.transport.Reactor"),
-    libraryDependencies ++= (commonDeps ++ Seq(postgresql,h2,jtds,ojdbc11,orai18n,mysql_connector_java,mssql_jdbc,HikariCP))
+    libraryDependencies ++= Seq(beangle_commons_core),
+    libraryDependencies ++= (commonDeps ++ Seq(postgresql, h2, jtds, ojdbc11, orai18n, mysql_connector_java, mssql_jdbc, HikariCP))
   )
 
 publish / skip := true
