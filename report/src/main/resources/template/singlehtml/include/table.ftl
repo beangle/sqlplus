@@ -1,8 +1,8 @@
 [#ftl]
 [#macro drawtable table]
-<div class="panel panel-info">
-  <div class="panel-heading"><h5 id="table_${table.qualifiedName?lower_case}">表格${table.qualifiedName?lower_case}</h5></div>
-  <div class="panel-body">
+<div class="card card-info">
+  <div class="card-header"><h5 id="table_${table.qualifiedName?lower_case}">表格${table.qualifiedName?lower_case}</h5></div>
+  <div class="card-body">
 <ul>
   <li>表格说明</li>
 </ul>
