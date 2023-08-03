@@ -2,7 +2,7 @@ import org.beangle.parent.Dependencies._
 import org.beangle.parent.Settings._
 
 ThisBuild / organization := "org.beangle.db"
-ThisBuild / version := "0.0.25-SNAPSHOT"
+ThisBuild / version := "0.0.25"
 
 ThisBuild / scmInfo := Some(
   ScmInfo(
@@ -36,6 +36,7 @@ lazy val lint = (project in file("lint"))
   .settings(
     name := "beangle-db-lint",
     common,
+    Compile / mainClass := Some("org.beangle.db.lint.validator.SchemaValidator"),
     libraryDependencies ++= Seq(beangle_commons_core),
     libraryDependencies ++= (commonDeps ++ Seq(postgresql, h2, jtds, ojdbc11, orai18n, mysql_connector_java, mssql_jdbc, HikariCP))
   )

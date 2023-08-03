@@ -35,8 +35,8 @@ object SchemaValidator {
 
     val dbconf = DataSourceUtils.parseXml((xml \\ "db").head)
     var basisFile = (xml \\ "basis" \ "@file").text
-    if (!basisFile.contains("/") || !basisFile.contains("\\")) {
-      basisFile = new File(args(0)).getParent + "/" + basisFile
+    if (!basisFile.contains("/") && !basisFile.contains("\\")) {
+      basisFile = new File(args(0)).getAbsoluteFile.getParentFile.getAbsolutePath + Files./ + basisFile
     }
     if (!new File(basisFile).exists()) {
       println("Cannot find basis xml file " + basisFile)
@@ -55,10 +55,17 @@ object SchemaValidator {
     }
     val diff = Diff.diff(database, basis)
     val sqls = Diff.sql(diff)
-    if (sqls.isEmpty) println("\\e[32mOK:\\e[0mdatabase and xml are coincident.")
+    if (sqls.isEmpty) println(ok("OK:") + "database and xml are coincident.")
     else
-      println("\\e[31mWARN:\\e[0mdatabase and xml are NOT coincident, and Referential migration sql are listed blow:")
+      println(warn("WARN:") + "database and xml are NOT coincident, and Referential migration sql are listed blow:")
       println(sqls.mkString(";\n"))
   }
 
+  private def ok(msg: String): String = {
+    s"\u001B[32m${msg}\u001B[0m"
+  }
+
+  private def warn(msg: String): String = {
+    s"\u001B[31m${msg}\u001B[0m"
+  }
 }

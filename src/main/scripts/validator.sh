@@ -49,7 +49,7 @@ export slf4j_ver=2.0.7
 export logback_ver=1.4.8
 export commons_compress_ver=1.23.0
 export boot_ver=0.1.4
-export beangle_db_ver=0.0.24
+export beangle_db_ver=0.0.25
 
 download org.scala-lang scala-library $scala_ver
 download org.scala-lang scala-reflect $scala_ver
@@ -70,7 +70,7 @@ if [[ -f $jarfile ]];then
   java -cp "${bootpath:1}" org.beangle.boot.dependency.AppResolver $jarfile --remote=$M2_REMOTE_REPO --local=$M2_REPO
   info=`java -cp "${bootpath:1}" org.beangle.boot.launcher.Classpath $jarfile $M2_REPO`
   if [ $? = 0 ]; then
-    mainclass="${info%@*}"
+    mainclass="org.beangle.db.lint.validator.SchemaValidator"
     classpath="${info#*@}"
     #echo java -cp "$classpath" $options $mainclass $args
     java -cp "$classpath" $mainclass $args
