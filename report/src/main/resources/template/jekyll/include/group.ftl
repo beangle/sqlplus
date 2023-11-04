@@ -1,6 +1,6 @@
 [#ftl]
 [#macro groupindex prefix group]
-* [${prefix} ${group.title}](${group.path}.html)
+* [${prefix} ${group.title}](${report.contextPath}${group.path}.html)
 [#list group.children as m]
   [@groupindex prefix+"."+(m_index+1),m;prefix,group/]
 [/#list]

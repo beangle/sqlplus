@@ -3,10 +3,10 @@
 
 <table class="table table-bordered table-striped table-condensed">
   <tr>
-    <th style="background-color:#D0D3FF">序号</th>
-    <th style="background-color:#D0D3FF">表名/描述</th>
-    <th style="background-color:#D0D3FF">序号</th>
-    <th style="background-color:#D0D3FF">表名/描述</th>
+    <th class="info_header text-center">序号</th>
+    <th class="info_header">表名/描述</th>
+    <th class="info_header text-center">序号</th>
+    <th class="info_header">表名/描述</th>
   </tr>
   [#if sequences?size>0]
   [#assign seqcnt = (sequences?size/2)?int]

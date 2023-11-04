@@ -11,7 +11,7 @@
   <tr>[#t/]
     <th class="info_header">表名</th>[#t/]
     <th class="info_header">主键</th>[#t/]
-    <th class="info_header">注释</th>[#t/]
+    <th class="info_header" style="width:40%">注释</th>[#t/]
   </tr>
   <tr>[#t/]
     <td>${table.qualifiedName?lower_case}</td>[#t/]
@@ -43,7 +43,8 @@
         [#if !finded]
         [#list fk.columns as fcol]
           [#if fcol.value==col.name]
-          <a href="#table_${fk.referencedTable.qualifiedName?lower_case}">${fk.referencedTable.qualifiedName?lower_case}</a>[#assign finded=true][#break/]
+            [#assign fkt=fk.referencedTable/]
+            <a href="#table_${fk.referencedTable.qualifiedName?lower_case}">${fk.referencedTable.qualifiedName?lower_case}</a>[#assign finded=true][#break/]
           [/#if]
         [/#list]
         [/#if]

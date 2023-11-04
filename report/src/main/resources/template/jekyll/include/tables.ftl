@@ -4,10 +4,10 @@ Schema ${module.schema.name}[#if module.name??].${module.name}[/#if]下共计${t
 
 <table class="table table-bordered table-striped table-condensed">
   <tr>
-    <th style="background-color:#D0D3FF">序号</th>
-    <th style="background-color:#D0D3FF">表名/描述</th>
-    <th style="background-color:#D0D3FF">序号</th>
-    <th style="background-color:#D0D3FF">表名/描述</th>
+    <th class="info_header text-center">序号</th>
+    <th class="info_header">表名/描述</th>
+    <th class="info_header text-center">序号</th>
+    <th class="info_header">表名/描述</th>
   </tr>
   [#if tables?size>0]
   [#assign tabcnt = (tables?size/2)?int]
