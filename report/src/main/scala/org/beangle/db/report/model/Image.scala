@@ -23,6 +23,8 @@ import org.beangle.data.jdbc.meta.Database
 class Image(val name: String, val title: String, schemaName: String, tableseq: String, val description: String) extends TableContainer {
   override val patterns: Array[AntPathPattern] = TableContainer.buildPatterns(schemaName, tableseq)
 
+  var direction: Option[String] = None
+
   def select(database: Database): Unit = {
     for (schema <- database.schemas.values) {
       for (table <- schema.tables.values) {

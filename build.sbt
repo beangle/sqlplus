@@ -2,7 +2,7 @@ import org.beangle.parent.Dependencies._
 import org.beangle.parent.Settings._
 
 ThisBuild / organization := "org.beangle.db"
-ThisBuild / version := "0.0.27-SNAPSHOT"
+ThisBuild / version := "0.0.27"
 
 ThisBuild / scmInfo := Some(
   ScmInfo(
@@ -23,8 +23,8 @@ ThisBuild / developers := List(
 ThisBuild / description := "The Beangle DB Library"
 ThisBuild / homepage := Some(url("https://beangle.github.io/db/index.html"))
 
-val beangle_data_jdbc = "org.beangle.data" %% "beangle-data-jdbc" % "5.7.0"
-val beangle_commons_core = "org.beangle.commons" %% "beangle-commons-core" % "5.6.0"
+val beangle_commons_core = "org.beangle.commons" %% "beangle-commons-core" % "5.6.4"
+val beangle_data_jdbc = "org.beangle.data" %% "beangle-data-jdbc" % "5.7.5"
 val beangle_template_freemarker = "org.beangle.template" %% "beangle-template-freemarker" % "0.1.7"
 val commonDeps = Seq(logback_classic, logback_core, beangle_data_jdbc, scalatest)
 

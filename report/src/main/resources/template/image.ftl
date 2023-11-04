@@ -1,5 +1,8 @@
 [#ftl]
 @startuml
+[#if image.direction??]
+${image.direction} direction
+[/#if]
 title ${image.title}
 [#assign referTables=[]]
 

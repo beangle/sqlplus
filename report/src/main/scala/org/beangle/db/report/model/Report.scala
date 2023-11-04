@@ -53,6 +53,9 @@ object Report {
     val report = new Report(database)
     report.title = (xml \ "@title").text
     report.contextPath = (xml \ "@contextPath").text
+    (xml \ "@reserveImageUmlScript") foreach { n =>
+      report.reserveImageUmlScript = n.text.toBoolean
+    }
     report.system.name = (xml \ "system" \ "@name").text
     report.system.version = (xml \ "system" \ "@version").text
     (xml \ "system" \ "props" \ "prop").foreach { ele => report.system.properties.put((ele \ "@name").text, (ele \ "@value").text) }
@@ -75,6 +78,7 @@ object Report {
     report.template = (xml \ "pages" \ "@template").text
     report.extension = (xml \ "pages" \ "@extension").text
     report.imageurl = (xml \ "pages" \ "@imageurl").text
+
     report.init()
     report
   }
@@ -89,8 +93,12 @@ object Report {
     }
     val group = new Group(name, (node \ "@title").text, module, mp, tables)
     (node \ "image").foreach { ele =>
-      group.addImage(
-        new Image((ele \ "@name").text, (ele \ "@title").text, module.schema.name, (ele \ "@tables").text, ele.text.trim))
+      val img = new Image((ele \ "@name").text, (ele \ "@title").text, module.schema.name, (ele \ "@tables").text, ele.text.trim)
+      val direction = (ele \ "@direction").text
+      if (Strings.isNotBlank(direction) && Set("top to bottom", "left to right").contains(direction)) {
+        img.direction = Some(direction)
+      }
+      group.addImage(img)
     }
     parent match {
       case None => module.addGroup(group)
@@ -117,6 +125,8 @@ class Report(val database: Database) extends Initializing with Logging {
 
   var imageurl: String = _
 
+  var reserveImageUmlScript: Boolean = false
+
   var extension: String = _
 
   val table2Group = Collections.newMap[Table, Group]
@@ -129,21 +139,21 @@ class Report(val database: Database) extends Initializing with Logging {
     pages :+= page
   }
 
-  def allGroups:List[Group]={
+  def allGroups: List[Group] = {
     for (s <- schemas; m <- s.modules; g <- m.groups) yield g
   }
 
-  def allTables:List[Table]={
-    for (s <- schemas; m <- s.modules; g <- m.groups; t<-g.tables) yield t
+  def allTables: List[Table] = {
+    for (s <- schemas; m <- s.modules; g <- m.groups; t <- g.tables) yield t
   }
 
-  def allSequences:List[Sequence] ={
-    val seqs = for(sc <- database.schemas.values; s<-sc.sequences) yield s
+  def allSequences: List[Sequence] = {
+    val seqs = for (sc <- database.schemas.values; s <- sc.sequences) yield s
     seqs.toList
   }
 
-  def allImages:List[Image]={
-    for (s <- schemas; m <- s.modules; g <- m.groups; i <-g.allImages) yield i
+  def allImages: List[Image] = {
+    for (s <- schemas; m <- s.modules; g <- m.groups; i <- g.allImages) yield i
   }
 
   def build(): Unit = {

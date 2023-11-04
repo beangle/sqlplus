@@ -71,7 +71,6 @@ object Reporter extends Logging {
       case e: Exception => e.printStackTrace()
     }
   }
-
 }
 
 class Reporter(val report: Report, val dir: String) extends Logging {
@@ -166,10 +165,11 @@ class Reporter(val report: Report, val dir: String) extends Logging {
           fw.close()
         }
         OptionFlags.getInstance().setSystemExit(false)
-        Run.main(Array(imageBase,"-charset","UTF-8"))
-        s.images foreach { image =>
-          val javafile = new File(imageBase + / + image.name + ".java")
-          javafile.delete()
+        Run.main(Array(imageBase, "-charset", "UTF-8"))
+        if (!report.reserveImageUmlScript) {
+          s.images foreach { image =>
+            new File(imageBase + / + image.name + ".java").delete()
+          }
         }
       }
     }
