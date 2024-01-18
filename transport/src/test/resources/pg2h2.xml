@@ -16,7 +16,7 @@
   <task from="ems">
     <tables lowercase="true" index="true" constraint="true">
       <includes>*</includes>
-      <excludes></excludes>
+      <excludes>*bak*</excludes>
     </tables>
   </task>
 </transport>
