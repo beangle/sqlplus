@@ -17,10 +17,12 @@
 
 package org.beangle.db.transport
 
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.{Numbers, Strings}
 import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.data.jdbc.engine.{Engine, Engines}
 import org.beangle.data.jdbc.meta.{Database, Identifier, Schema}
+import org.beangle.db.transport.Config.Source
 import org.beangle.db.transport.schema.SchemaWrapper
 
 import javax.sql.DataSource
@@ -28,7 +30,10 @@ import javax.sql.DataSource
 object Config {
 
   def apply(xml: scala.xml.Elem): Config = {
-    val config = new Config(Config.source(xml), Config.target(xml), Config.maxtheads(xml),
+    val source = Config.db(xml, "source")
+    val target = Config.db(xml, "target")
+    val tasks = Config.tasks(xml, source, target)
+    val config = new Config(source, target, tasks, Config.maxtheads(xml),
       Config.bulkSize(xml), Config.datarange(xml), Config.model(xml))
 
     config.beforeActions = beforeAction(xml)
@@ -65,48 +70,50 @@ object Config {
     if (bsv > 10000) bsv else 30000
   }
 
-  private def source(xml: scala.xml.Elem): Source = {
-    val dbconf = DataSourceUtils.parseXml((xml \\ "source" \\ "db").head)
-    val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
-    val engine = Engines.forDataSource(ds)
-    val source = new Source(engine, ds)
-    source.schema = engine.toIdentifier(dbconf.schema.value)
-    source.catalog = engine.toIdentifier(if null == dbconf.catalog then null else dbconf.catalog.value)
-    val tableConfig = new TableConfig
-    tableConfig.withIndex = "false" != (xml \\ "tables" \ "@index").text
-    tableConfig.withConstraint = "false" != (xml \\ "tables" \ "@constraint").text
-    tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim.toLowerCase).toSeq
-    tableConfig.excludes = Strings.split((xml \\ "tables" \\ "excludes").text.trim.toLowerCase).toSeq
-    source.table = tableConfig
+  private def tasks(xml: scala.xml.Elem, source: Config.Source, target: Config.Source): Seq[Task] = {
+    val tasks = Collections.newBuffer[Task]
+    (xml \\ "task") foreach { ele =>
+      val task = new Task(source, target)
+      val from = source.parse((ele \ "@from").text)
+      val to = target.parse((ele \ "@to").text)
+      require(Strings.isNotBlank(from._2.value), "task need from schema property")
+      require(Strings.isNotBlank(to._2.value), "task need from schema property")
 
-    val seqConfig = new SeqConfig
-    seqConfig.includes = Strings.split((xml \\ "sequences" \\ "includes").text.trim).toSeq
-    seqConfig.excludes = Strings.split((xml \\ "sequences" \\ "excludes").text.trim).toSeq
-    source.sequence = seqConfig
+      task.path(from, to)
+      val tableConfig = new TableConfig
+      (ele \\ "tables" \ "@lowercase") foreach { e =>
+        if (e.text == "true") tableConfig.lowercase = Some(true)
+      }
+      tableConfig.withIndex = "false" != (xml \\ "tables" \ "@index").text
+      tableConfig.withConstraint = "false" != (xml \\ "tables" \ "@constraint").text
+      tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim.toLowerCase).toSeq
+      tableConfig.excludes = Strings.split((xml \\ "tables" \\ "excludes").text.trim.toLowerCase).toSeq
+      task.table = tableConfig
 
-    source
+      val seqConfig = new SeqConfig
+      seqConfig.includes = Strings.split((xml \\ "sequences" \\ "includes").text.trim).toSeq
+      seqConfig.excludes = Strings.split((xml \\ "sequences" \\ "excludes").text.trim).toSeq
+      task.sequence = seqConfig
+      tasks.addOne(task)
+    }
+    tasks.toList
   }
 
-  private def target(xml: scala.xml.Elem): Target = {
-    val dbconf = DataSourceUtils.parseXml((xml \\ "target" \\ "db").head)
+  private def db(xml: scala.xml.Elem, target: String): Source = {
+    val dbconf = DataSourceUtils.parseXml((xml \\ target).head)
 
     val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
-    val target = new Target(Engines.forDataSource(ds), ds)
-    target.schema = dbconf.schema
-    target.catalog = dbconf.catalog
-    target
+    new Source(Engines.forDataSource(ds), ds)
   }
 
   private def beforeAction(xml: scala.xml.Elem): Iterable[ActionConfig] = {
-    val actions = (xml \\ "actions" \\ "before" \\ "sql")
-    actions.map { x =>
+    (xml \\ "actions" \\ "before" \\ "sql").map { x =>
       ActionConfig("script", Map("file" -> (x \ "@file").text))
     }
   }
 
   private def afterAction(xml: scala.xml.Elem): Iterable[ActionConfig] = {
-    val actions = (xml \\ "actions" \\ "after" \\ "sql")
-    actions.map { x =>
+    (xml \\ "actions" \\ "after" \\ "sql").map { x =>
       ActionConfig("script", Map("file" -> (x \ "@file").text))
     }
   }
@@ -114,6 +121,7 @@ object Config {
   final class TableConfig {
     var includes: Seq[String] = _
     var excludes: Seq[String] = _
+    var lowercase: Option[Boolean] = None
     var withIndex: Boolean = true
     var withConstraint: Boolean = true
   }
@@ -123,38 +131,66 @@ object Config {
     var excludes: Seq[String] = _
   }
 
-  class SchemaHolder(val engine: Engine, val dataSource: DataSource) {
+  class Source(val engine: Engine, val dataSource: DataSource) {
     val database = new Database(engine)
-    var schema: Identifier = _
-    var catalog: Identifier = _
 
-    def getSchema: Schema = {
-      if (null == schema) schema = engine.toIdentifier(engine.defaultSchema)
-      else schema = engine.toIdentifier(schema.value)
-      val rs = database.getOrCreateSchema(schema)
-      rs.catalog = Option(catalog)
+    def parse(schemaName: String): (Option[Identifier], Identifier) = {
+      if (schemaName.isBlank) {
+        (None, engine.toIdentifier(engine.defaultSchema))
+      } else if (schemaName.contains(".")) {
+        val c = Strings.substringBefore(schemaName, ".")
+        val s = Strings.substringBefore(schemaName, ".")
+        (Option(engine.toIdentifier(c)), engine.toIdentifier(s))
+      } else {
+        (None, engine.toIdentifier(schemaName))
+      }
+    }
+
+    def getSchema(catalog: Option[Identifier], schema: Identifier): Schema = {
+      val s =
+        if (null == schema) engine.toIdentifier(engine.defaultSchema)
+        else engine.toIdentifier(schema.value)
+      val rs = database.getOrCreateSchema(s)
+      rs.catalog = catalog
       rs
+    }
+
+    def buildWrapper(catalog: Option[Identifier], schema: Identifier): SchemaWrapper = {
+      new SchemaWrapper(dataSource, engine, getSchema(catalog, schema))
     }
   }
 
-  final class Source(engine: Engine, dataSource: DataSource) extends SchemaHolder(engine, dataSource) {
+  class Task(val source: Config.Source, val target: Config.Source) {
     var table: TableConfig = _
     var sequence: SeqConfig = _
 
-    def buildWrapper(): SchemaWrapper = {
-      new SchemaWrapper(dataSource, engine, getSchema)
-    }
-  }
+    def path(from: (Option[Identifier], Identifier), to: (Option[Identifier], Identifier)): Unit = {
+      this.fromCatalog = from._1
+      this.fromSchema = from._2
 
-  final class Target(engine: Engine, dataSource: DataSource) extends SchemaHolder(engine, dataSource) {
-    def buildWrapper(): SchemaWrapper = {
-      new SchemaWrapper(dataSource, engine, getSchema)
+      this.toCatalog = to._1
+      this.toSchema = to._2
     }
+
+    def sourceWrapper(): SchemaWrapper = {
+      source.buildWrapper(fromCatalog, fromSchema)
+    }
+
+    def targetWrapper(): SchemaWrapper = {
+      target.buildWrapper(toCatalog, toSchema)
+    }
+
+    var fromSchema: Identifier = _
+    var fromCatalog: Option[Identifier] = None
+    var toSchema: Identifier = _
+    var toCatalog: Option[Identifier] = None
   }
 
 }
 
-class Config(val source: Config.Source, val target: Config.Target, val maxthreads: Int,
+
+class Config(val source: Config.Source, val target: Config.Source,
+             val tasks: Seq[Config.Task], val maxthreads: Int,
              val bulkSize: Int,
              val dataRange: (Int, Int),
              val conversionModel: ConversionModel.Value) {

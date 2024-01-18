@@ -1,26 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<conversion maxthreads="10" >
+<transport maxthreads="10" >
   <source>
-    <db>
-      <driver>postgresql</driver>
-      <url>jdbc:postgresql://localhost:5432/platform</url>
-      <user>postgres</user>
-      <password>postgres</password>
-      <schema>ems</schema>
-    </db>
-    <tables lowercase="true" index="true" constraint="true">
+    <driver>postgresql</driver>
+    <url>jdbc:postgresql://localhost:5432/platform</url>
+    <user>postgres</user>
+    <password>postgres</password>
+  </source>
+  <target>
+    <driver>postgresql</driver>
+    <url>jdbc:postgresql://localhost:5432/platform</url>
+    <user>postgres</user>
+    <password>postgres</password>
+  </target>
+
+  <task from="ems" to="ems1">
+    <tables lowercase="true" index="true" constraint="true" >
       <includes>*</includes>
       <excludes></excludes>
     </tables>
-  </source>
+  </task>
 
-  <target>
-    <db>
-      <driver>postgresql</driver>
-      <url>jdbc:postgresql://localhost:5432/platform</url>
-      <user>postgres</user>
-      <password>postgres</password>
-      <schema>ems1</schema>
-    </db>
-  </target>
-</conversion>
+</transport>

@@ -36,10 +36,11 @@ object Report {
     val dir = new File(reportXml).getParent
     var database: Database = null
     if ((xml \ "db").nonEmpty) {
-      val dbconf = DataSourceUtils.parseXml(xml)
+      val dbElem = (xml \ "db").head
+      val dbconf = DataSourceUtils.parseXml(dbElem)
       database = new Database(Engines.forName(dbconf.driver))
       val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
-      val schema = new Schema(database, dbconf.schema)
+      val schema = new Schema(database, database.engine.toIdentifier((dbElem \ "@schema").text))
 
       val meta = ds.getConnection().getMetaData
       val loader = new MetadataLoader(meta, Engines.forDataSource(ds))

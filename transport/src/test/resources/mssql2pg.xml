@@ -1,26 +1,23 @@
 <?xml version="1.0"?>
-<conversion maxthreads="5">
+<transport maxthreads="5">
   <source>
-      <driver>jtds</driver>
-      <url>jdbc:jtds:sqlserver://192.168.1.9:1433/studb</url>
-      <user>sa</user>
-      <password>111111</password>
-      <schema>dbo</schema>
-      <catalog>studb</catalog>
-      <props>
-        <prop name="connectionTestQuery" value="select * from [studb].[dbo].[T_YEAR_TERM]"/>
-      </props>
-      <tables/>
+    <driver>jtds</driver>
+    <url>jdbc:jtds:sqlserver://192.168.1.9:1433/studb</url>
+    <user>sa</user>
+    <password>111111</password>
+    <props>
+      <prop name="connectionTestQuery" value="select * from [studb].[dbo].[T_YEAR_TERM]"/>
+    </props>
   </source>
   <target>
-    <db>
-      <driver>postgresql</driver>
-      <url>jdbc:postgresql://localhost:5432/postgres</url>
-      <user>postgres</user>
-      <password>1</password>
-      <schema>demo</schema>
-    </db>
+    <driver>postgresql</driver>
+    <url>jdbc:postgresql://localhost:5432/postgres</url>
+    <user>postgres</user>
+    <password>1</password>
   </target>
+  <task from="studb.dbo" to="demo">
+    <tables/>
+  </task>
   <actions>
     <before>
       <sql file="/path/to/init.sql"/>
@@ -29,4 +26,4 @@
       <sql file="/path/to/process.sql"/>
     </after>
   </actions>
-</conversion>
+</transport>

@@ -8,6 +8,7 @@ tab_width = 2
 
 [*.{js,scala,java,html,md,css,xml,ftl}]
 charset = utf-8
+tab_width = 2
 
 # space indentation
 [*.{scala,java,js,json,xml,ftl}]
