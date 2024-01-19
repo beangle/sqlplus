@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transport maxthreads="10" >
+  <source>
+    <driver>oracle</driver>
+    <url>jdbc:oracle:thin:@localhost:1521:orcl</url>
+    <user>user</user>
+    <password>pwd</password>
+  </source>
+  <target>
+    <driver>postgresql</driver>
+    <url>jdbc:postgresql://localhost:5432/ecupl</url>
+    <user>postgres</user>
+    <password>postgres</password>
+  </target>
+
+  <task from="eams" to="eams">
+    <tables lowercase="true" index="true" constraint="true" >
+      <includes>*</includes>
+      <excludes>tmp*,*bak,*{[0-9]+}</excludes>
+    </tables>
+  </task>
+
+</transport>

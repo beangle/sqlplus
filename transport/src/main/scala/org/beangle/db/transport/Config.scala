@@ -86,8 +86,8 @@ object Config {
       }
       tableConfig.withIndex = "false" != (xml \\ "tables" \ "@index").text
       tableConfig.withConstraint = "false" != (xml \\ "tables" \ "@constraint").text
-      tableConfig.includes = Strings.split((xml \\ "tables" \\ "includes").text.trim.toLowerCase).toSeq
-      tableConfig.excludes = Strings.split((xml \\ "tables" \\ "excludes").text.trim.toLowerCase).toSeq
+      tableConfig.includes = (xml \\ "tables" \\ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      tableConfig.excludes = (xml \\ "tables" \\ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
       task.table = tableConfig
 
       val seqConfig = new SeqConfig
