@@ -15,50 +15,60 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.beangle.db.transport.schema
+package org.beangle.db.transport.converter
 
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.IOs
 import org.beangle.commons.lang.Strings
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.engine.Engine
-import org.beangle.data.jdbc.meta.{MetadataLoader, Schema, Sequence, Table}
+import org.beangle.data.jdbc.meta.*
+import org.beangle.data.jdbc.meta.Schema.NameFilter
 import org.beangle.data.jdbc.query.{JdbcExecutor, ResultSetIterator}
-import org.beangle.db.transport.DataWrapper
+import org.beangle.db.transport.TableStore
 
 import java.sql.Connection
 import javax.sql.DataSource
 
-class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: Schema)
-  extends DataWrapper with Logging {
+class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends TableStore with Logging {
   val executor = new JdbcExecutor(dataSource)
+  val database = new Database(engine)
+  private val loadedSchemas = Collections.newSet[String]
 
-  def loadMetas(loadTableExtra: Boolean, loadSequence: Boolean): Unit = {
+  def loadMetas(catalog: Option[Identifier], schemaName: Identifier, nameFilter: NameFilter, loadTableExtra: Boolean, loadSequence: Boolean): Unit = {
     var conn: Connection = null
     try {
-      conn = dataSource.getConnection
-      val loader = new MetadataLoader(conn.getMetaData, engine)
-      loader.loadTables(schema, loadTableExtra)
-      if (loadSequence) loader.loadSequences(schema)
+      val schema = getSchema(catalog, schemaName)
+      val schemaLiteralName = schema.name.toLiteral(engine)
+
+      if (!loadedSchemas.contains(schemaLiteralName)) {
+        logger.info(s"loading ${schemaName} metas ...")
+        conn = dataSource.getConnection
+        val loader = new MetadataLoader(conn.getMetaData, engine)
+        loader.loadTables(schema, nameFilter, loadTableExtra)
+        if (loadSequence) loader.loadSequences(schema)
+        loadedSchemas.addOne(schemaLiteralName)
+      }
     } finally {
       IOs.close(conn)
     }
   }
 
-  def createSchema(): Unit = {
+  def createSchema(schemaName: Identifier): Unit = {
     val loader = new MetadataLoader(dataSource.getConnection.getMetaData, engine)
     val schemas = loader.schemas()
-    if (!schemas.map(_.toLowerCase).contains(schema.name.value.toLowerCase)) {
-      val createSchemaSql = engine.createSchema(schema.name.toString)
+    if (!schemas.map(_.toLowerCase).contains(schemaName.value.toLowerCase)) {
+      val createSchemaSql = engine.createSchema(schemaName.toString)
       if Strings.isNotBlank(createSchemaSql) then executor.update(createSchemaSql)
     }
   }
 
   override def has(table: Table): Boolean = {
-    schema.getTable(table.name.value).isDefined
+    getSchema(table).getTable(table.name.value).isDefined
   }
 
   override def get(table: Table): Option[Table] = {
-    schema.getTable(table.name.value)
+    getSchema(table).getTable(table.name.value)
   }
 
   override def clean(table: Table): Boolean = {
@@ -71,7 +81,7 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
           create(table)
         }
     }
-    schema.addTable(table)
+    getSchema(table).addTable(table)
     true
   }
 
@@ -92,7 +102,7 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
 
   private def cleanSelfKeys(table: Table): Unit = {
     try
-      schema.getTable(table.name.value) foreach { t =>
+      getSchema(table).getTable(table.name.value) foreach { t =>
         t.primaryKey foreach { pk =>
           executor.update(engine.alterTable(t).dropPrimaryKey(pk))
           logger.debug(s"Drop primary key ${table.qualifiedName}.${pk.literalName}")
@@ -110,16 +120,15 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
           logger.debug(s"Drop index ${i.literalName} on ${table.qualifiedName}.")
         }
       }
-      logger.info(s"Clean table ${table.qualifiedName}'s keys and constraints")
+      logger.debug(s"Clean table ${table.qualifiedName}'s keys and constraints")
     catch
       case e: Exception => logger.error(s"Clean table ${table.name} 's keys failed", e)
   }
 
   override def truncate(table: Table): Boolean = {
     try
-      schema.getTable(table.name.value) foreach { t =>
+      getSchema(table).getTable(table.name.value) foreach { t =>
         executor.update(engine.truncate(t))
-        logger.info(s"Truncate table ${table.name}")
       }
       true
     catch
@@ -130,6 +139,7 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
 
   override def drop(table: Table): Boolean = {
     try
+      val schema = getSchema(table)
       schema.getTable(table.name.value) foreach { t =>
         schema.tables.remove(t.name)
         executor.update(engine.dropTable(t.qualifiedName))
@@ -143,7 +153,7 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
   }
 
   override def create(table: Table): Boolean = {
-    if (schema.getTable(table.name.value).isEmpty) {
+    if (getSchema(table).getTable(table.name.value).isEmpty) {
       try
         executor.update(engine.createTable(table))
         logger.info(s"Create table ${table.name}")
@@ -156,6 +166,7 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
   }
 
   def drop(sequence: Sequence): Boolean = {
+    val schema = getSchema(sequence.schema.catalog, sequence.schema.name)
     val exists = schema.sequences.contains(sequence)
     if (exists) {
       schema.sequences.remove(sequence)
@@ -195,6 +206,19 @@ class SchemaWrapper(val dataSource: DataSource, val engine: Engine, val schema: 
     val types = for (column <- table.columns) yield column.sqlType.code
     val insertSql = engine.insert(table)
     executor.batch(insertSql, datas, types.toSeq).length
+  }
+
+  private def getSchema(table: Table): Schema = {
+    getSchema(table.schema.catalog, table.schema.name)
+  }
+
+  def getSchema(catalog: Option[Identifier], schema: Identifier): Schema = {
+    val s =
+      if (null == schema) engine.toIdentifier(engine.defaultSchema)
+      else engine.toIdentifier(schema.value)
+    val rs = database.getOrCreateSchema(s)
+    rs.catalog = catalog
+    rs
   }
 
   override def close(): Unit = {}

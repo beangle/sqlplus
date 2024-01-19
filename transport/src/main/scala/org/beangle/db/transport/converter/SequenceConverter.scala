@@ -15,16 +15,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.beangle.db.transport.schema
+package org.beangle.db.transport.converter
 
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.meta.Sequence
 import org.beangle.db.transport.Converter
 
-class SequenceConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
+class SequenceConverter(val target: DefaultTableStore) extends Converter with Logging {
 
-  val sequences = new collection.mutable.ListBuffer[Sequence]
+  private val sequenceMap = Collections.newMap[String, Sequence]
+
+  def add(ns: Iterable[Sequence]): Unit = {
+    ns.foreach(x => sequenceMap.put(x.qualifiedName, x))
+  }
 
   def reset(): Unit = {
 
@@ -36,7 +41,7 @@ class SequenceConverter(val source: SchemaWrapper, val target: SchemaWrapper) ex
         logger.info(s"Recreate sequence ${sequence.qualifiedName}")
         return true
       } else {
-        logger.error(s"Recreate sequence {sequence.qualifiedName} failure.")
+        logger.error(s"Recreate sequence ${sequence.qualifiedName} failure.")
       }
     }
     false
@@ -45,18 +50,16 @@ class SequenceConverter(val source: SchemaWrapper, val target: SchemaWrapper) ex
   def start(): Unit = {
     val targetEngine = target.engine
     if (!targetEngine.supportSequence) {
-      logger.info(s"Target database ${targetEngine.getClass().getSimpleName()} dosen't support sequence,replication ommited.")
+      logger.info(s"Target database ${targetEngine.getClass.getSimpleName} doesn't support sequence,replication omitted.")
       return
     }
     val watch = new Stopwatch(true)
+    val sequences = sequenceMap.values
     logger.info("Start sequence replication...")
-    for (sequence <- sequences.sorted) {
+    for (sequence <- sequences) {
       reCreate(sequence)
     }
-    logger.info(s"End ${sequences.length} sequence replication,using $watch")
+    logger.info(s"End ${sequences.size} sequence replication,using $watch")
   }
 
-  def addAll(newSequences: collection.Iterable[Sequence]): Unit = {
-    sequences ++= newSequences
-  }
 }

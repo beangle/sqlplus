@@ -18,14 +18,17 @@
 package org.beangle.db.transport
 
 import org.beangle.commons.collection.Collections
+import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.DataSourceUtils
 import org.beangle.data.jdbc.engine.StoreCase
-import org.beangle.data.jdbc.meta.{Constraint, PrimaryKey, Table}
-import org.beangle.db.transport.Config.TableConfig
-import org.beangle.db.transport.schema.*
+import org.beangle.data.jdbc.meta.{Schema, Table}
+import org.beangle.db.transport.Config.{TableConfig, Task}
+import org.beangle.db.transport.converter.*
+import org.beangle.db.transport.converter.TableConverter.TablePair
 
 import java.io.FileInputStream
+import java.util.concurrent.LinkedBlockingQueue
 
 object Reactor extends Logging {
 
@@ -43,6 +46,7 @@ object Reactor extends Logging {
 
 class Reactor(val config: Config) extends Logging {
   def start() = {
+    var sw= new Stopwatch(true)
     config.beforeActions foreach { acf =>
       acf.category match {
         case "script" => new SqlAction(config.source.dataSource, acf.properties("file")).process()
@@ -50,64 +54,83 @@ class Reactor(val config: Config) extends Logging {
       }
     }
 
+    val converters = new collection.mutable.ListBuffer[Converter]
+
+    val source = new DefaultTableStore(config.source.dataSource, config.source.engine)
+    val target = new DefaultTableStore(config.target.dataSource, config.target.engine)
     config.tasks foreach { task =>
-      val sourceWrapper = task.sourceWrapper()
-      val targetWrapper = task.targetWrapper()
+      source.loadMetas(task.fromCatalog, task.fromSchema, task.table.buildNameFilter(), true, true)
+      target.loadMetas(task.toCatalog, task.toSchema, task.table.buildNameFilter(), true, true)
+      target.createSchema(task.toSchema)
+    }
 
-      val loadextra = task.table.withIndex || task.table.withConstraint
-      logger.info("loading source metas")
-      sourceWrapper.loadMetas(loadextra, true)
-      logger.info("loading target metas")
-      targetWrapper.loadMetas(loadextra, true)
-      targetWrapper.createSchema()
+    val dataConverter = new TableConverter(source, target, config.maxthreads, config.bulkSize)
 
-      val converters = new collection.mutable.ListBuffer[Converter]
+    val taskTables = Collections.newMap[Task, Iterable[TablePair]]
+    config.tasks foreach { task =>
+      val srcSchema = source.getSchema(task.fromCatalog, task.fromSchema)
+      val targetSchema = target.getSchema(task.toCatalog, task.toSchema)
+      val tables = filterTables(task.table, srcSchema, targetSchema)
 
-      val dataConverter = new TableConverter(sourceWrapper, targetWrapper, config.maxthreads,
-        config.bulkSize, config.dataRange, config.conversionModel)
-      val tables = filterTables(task.table, sourceWrapper, targetWrapper);
-      dataConverter.addAll(tables)
+      val dataRange = config.dataRange
+      val pairs = new LinkedBlockingQueue[TablePair]
+      ThreadWorkers.work(tables, p => {
+        val srcCount = source.count(p._1)
+        if (dataRange._1 <= srcCount && srcCount <= dataRange._2) {
+          pairs.add(TablePair(p._1, p._2, srcCount))
+        }
+      }, config.maxthreads)
+      import scala.jdk.CollectionConverters.*
+      taskTables.put(task, pairs.asScala)
+      dataConverter.add(pairs.asScala)
+    }
 
-      converters += dataConverter
+    converters += dataConverter
 
-      val pkConverter = new PrimaryKeyConverter(sourceWrapper, targetWrapper)
-      pkConverter.addPrimaryKeys(filterPrimaryKeys(tables))
-      converters += pkConverter
+    val pkConverter = new PrimaryKeyConverter(target, config.maxthreads)
+    pkConverter.add(dataConverter.primaryKeys)
+    converters += pkConverter
 
-      if (task.table.withIndex) {
-        val indexConverter = new IndexConverter(sourceWrapper, targetWrapper)
-        indexConverter.tables ++= tables.map(_._2)
-        converters += indexConverter
-      }
+    val indexConverter = new IndexConverter(target, config.maxthreads)
+    config.tasks foreach { task =>
+      if task.table.withIndex then
+        indexConverter.add(taskTables(task).flatten(_.target.indexes))
+    }
+    converters += indexConverter
 
-      if (task.table.withConstraint) {
-        val constraintConverter = new ConstraintConverter(sourceWrapper, targetWrapper)
-        constraintConverter.addConstraints(filterConstraints(tables))
-        converters += constraintConverter
-      }
+    val constraintConverter = new ConstraintConverter(target, config.maxthreads)
+    config.tasks foreach { task =>
+      if task.table.withConstraint then
+        constraintConverter.add(taskTables(task).flatten(_.target.foreignKeys))
+    }
+    converters += constraintConverter
 
-      val sequenceConverter = new SequenceConverter(sourceWrapper, targetWrapper)
-      val sequences = sourceWrapper.schema.filterSequences(task.sequence.includes, task.sequence.excludes)
+    val sequenceConverter = new SequenceConverter(target)
+    config.tasks foreach { task =>
+      val srcSchema = source.getSchema(task.fromCatalog, task.fromSchema)
+      val sequences = srcSchema.filterSequences(task.sequence.includes, task.sequence.excludes)
       sequences foreach { n =>
-        n.schema = config.target.getSchema(task.toCatalog, task.toSchema)
+        n.schema = target.getSchema(task.toCatalog, task.toSchema)
         if (config.target.engine.storeCase != StoreCase.Mixed) {
           n.toCase(config.target.engine.storeCase == StoreCase.Lower)
         }
         n.attach(config.target.engine)
       }
-      sequenceConverter.addAll(sequences)
-      converters += sequenceConverter
-
-      for (converter <- converters) {
-        converter.start()
-      }
+      sequenceConverter.add(sequences)
     }
+    converters += sequenceConverter
+
+    for (converter <- converters) {
+      converter.start()
+    }
+
     config.afterActions foreach { acf =>
       acf.category match {
         case "script" => new SqlAction(config.target.dataSource, acf.properties("file")).process()
         case _ => logger.warn("Cannot support " + acf.category)
       }
     }
+    logger.info(s"transport complete using ${sw}")
   }
 
   def close(): Unit = {
@@ -116,28 +139,20 @@ class Reactor(val config: Config) extends Logging {
     DataSourceUtils.close(config.target.dataSource)
   }
 
-  private def filterTables(tableConfig: TableConfig, srcWrapper: SchemaWrapper, targetWrapper: SchemaWrapper): List[Tuple2[Table, Table]] = {
-    val tables = srcWrapper.schema.filterTables(tableConfig.includes, tableConfig.excludes)
-    val tablePairs = Collections.newMap[String, Tuple2[Table, Table]]
+  private def filterTables(tableConfig: TableConfig, srcSchema: Schema, targetSchema: Schema): List[Tuple2[Table, Table]] = {
+    val tables = srcSchema.filterTables(tableConfig.includes, tableConfig.excludes)
+    val tablePairs = Collections.newMap[String, (Table, Table)]
 
     for (srcTable <- tables) {
       val targetTable = srcTable.clone()
-      targetTable.updateSchema(targetWrapper.schema)
+      targetTable.updateSchema(targetSchema)
       tableConfig.lowercase foreach { lowercase =>
         if (lowercase) targetTable.toCase(true)
       }
-      targetTable.attach(targetWrapper.engine)
+      targetTable.attach(targetSchema.database.engine)
       tablePairs.put(targetTable.name.toString, srcTable -> targetTable)
     }
     tablePairs.values.toList
-  }
-
-  private def filterPrimaryKeys(tables: List[Tuple2[Table, Table]]): List[PrimaryKey] = {
-    tables.flatten(_._2.primaryKey)
-  }
-
-  private def filterConstraints(tables: List[Tuple2[Table, Table]]): List[Constraint] = {
-    tables.flatten(_._2.foreignKeys)
   }
 
 }

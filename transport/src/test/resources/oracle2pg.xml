@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<transport maxthreads="10" >
+<transport maxthreads="15">
   <source>
     <driver>oracle</driver>
     <url>jdbc:oracle:thin:@localhost:1521:orcl</url>
@@ -14,9 +14,9 @@
   </target>
 
   <task from="eams" to="eams">
-    <tables lowercase="true" index="true" constraint="true" >
+    <tables lowercase="true" index="true">
       <includes>*</includes>
-      <excludes>tmp*,*bak,*{[0-9]+}</excludes>
+      <excludes>tmp*,*bak,*{[0-9]+},*old</excludes>
     </tables>
   </task>
 

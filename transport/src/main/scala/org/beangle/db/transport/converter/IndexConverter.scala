@@ -15,37 +15,39 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.beangle.db.transport.schema
+package org.beangle.db.transport.converter
 
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.meta.{Constraint, ForeignKey, PrimaryKey}
+import org.beangle.data.jdbc.meta.{Index, Table}
 import org.beangle.db.transport.Converter
 
-class PrimaryKeyConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
+class IndexConverter(val target: DefaultTableStore, val threads: Int) extends Converter with Logging {
 
-  private val primaryKeys = new collection.mutable.ListBuffer[PrimaryKey]
+  private val idxMap = Collections.newMap[String, Index]
 
-  def addPrimaryKeys(newPks: Seq[PrimaryKey]): Unit = {
-    primaryKeys ++= newPks
+  def add(indxes: Iterable[Index]): Unit = {
+    indxes.foreach(x => idxMap.put(x.literalName, _))
   }
 
   def reset(): Unit = {
-
   }
 
   def start(): Unit = {
+    val indexes = idxMap.values
+    val indexCount = indexes.size
+    logger.info(s"Start $indexCount indexes replication in $threads threads...")
     val watch = new Stopwatch(true)
-    logger.info("Starting apply primary keys...")
-    for (pk <- primaryKeys.sorted) {
-      val sql = target.engine.alterTable(pk.table).addPrimaryKey(pk)
+    ThreadWorkers.work(indexes, index => {
       try {
-        target.executor.update(sql)
-        logger.info(s"Apply primary key ${pk.name}")
+        target.executor.update(target.engine.createIndex(index))
+        logger.info(s"Create index ${index.name}")
       } catch {
-        case e: Exception => logger.warn(s"Cannot execute $sql")
+        case e: Exception => logger.error(s"Cannot create index ${index.name}", e)
       }
-    }
-    logger.info(s"End primary replication,using $watch")
+    }, threads)
+    logger.info(s"Finish $indexCount indexes replication,using $watch")
   }
+
 }

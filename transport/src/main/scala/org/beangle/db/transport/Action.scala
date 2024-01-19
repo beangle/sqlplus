@@ -51,7 +51,7 @@ class SqlAction(val dataSource: DataSource, fileName: String) extends Action wit
         statement = Strings.replace(statement, "\n", " ")
         val sw = new Stopwatch(true)
         val rs = executor.update(statement)
-        logger.info(comment + s"${rs}条 用时 ${sw}")
+        logger.info(comment + s" ${rs}, using ${sw}")
       } else if (Strings.isNotBlank(s)) {
         executor.update(s)
       }

@@ -15,37 +15,42 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.beangle.db.transport.schema
+package org.beangle.db.transport.converter
 
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.meta.Table
+import org.beangle.data.jdbc.meta.{Constraint, ForeignKey}
 import org.beangle.db.transport.Converter
 
-class IndexConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
+class ConstraintConverter(val target: DefaultTableStore, val threads: Int) extends Converter with Logging {
 
-  val tables = new collection.mutable.ListBuffer[Table]
+  private val constraintMap = Collections.newMap[String, Constraint]
+
+  def add(cs: Iterable[Constraint]): Unit = {
+    cs foreach { c => constraintMap.put(c.literalName, c) }
+  }
 
   def reset(): Unit = {
+
   }
 
   def start(): Unit = {
+    val constraints = constraintMap.values
+    val cnt = constraints.size
     val watch = new Stopwatch(true)
-    var indexCount = 0
-    val engine = target.engine
-    val executor = target.executor
-    for (table <- tables) {
-      for (index <- table.indexes) {
+    logger.info(s"Start $cnt constraints replication in $threads threads...")
+    ThreadWorkers.work(constraints, {
+      case fk: ForeignKey =>
+        val sql = target.engine.alterTable(fk.table).addForeignKey(fk)
         try {
-          indexCount += 1
-          executor.update(engine.createIndex(index))
-          logger.info(s"Create index ${index.name}")
+          target.executor.update(sql)
+          logger.info(s"Apply constraint ${fk.name}")
         } catch {
-          case e: Exception => logger.error(s"Cannot create index ${index.name}", e)
+          case e: Exception => logger.warn(s"Cannot execute $sql")
         }
-      }
-    }
-    logger.info(s"End $indexCount indexes conversion,using $watch")
+      case _ =>
+    }, threads)
+    logger.info(s"Finish $cnt constraints replication,using $watch")
   }
-
 }

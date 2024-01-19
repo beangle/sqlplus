@@ -22,12 +22,7 @@ trait Converter {
   /**
    * 设置目标数据源
    */
-  def target: DataWrapper
-
-  /**
-   * 设置源数据源
-   */
-  def source: DataWrapper
+  def target: TableStore
 
   /**
    * 重新开始

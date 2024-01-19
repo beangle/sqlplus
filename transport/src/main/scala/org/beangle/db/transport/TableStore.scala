@@ -17,16 +17,22 @@
 
 package org.beangle.db.transport
 
+import org.beangle.data.jdbc.engine.Engine
 import org.beangle.data.jdbc.meta.Table
 import org.beangle.data.jdbc.query.ResultSetIterator
 
-trait DataWrapper {
+trait TableStore {
 
   def select(table: Table): ResultSetIterator
 
   def get(table: Table): Option[Table]
 
-  def clean(table:Table):Boolean
+  /** 清空所有依赖和索引，但不清除数据
+   *
+   * @param table
+   * @return
+   */
+  def clean(table: Table): Boolean
 
   def cleanForeignKeys(table: Table): Unit
 
@@ -43,5 +49,7 @@ trait DataWrapper {
   def close(): Unit
 
   def count(table: Table): Int
+
+  def engine: Engine
 
 }

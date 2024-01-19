@@ -15,40 +15,39 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.beangle.db.transport.schema
+package org.beangle.db.transport.converter
 
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.meta.{Constraint, ForeignKey, PrimaryKey}
+import org.beangle.data.jdbc.meta.PrimaryKey
 import org.beangle.db.transport.Converter
 
-class ConstraintConverter(val source: SchemaWrapper, val target: SchemaWrapper) extends Converter with Logging {
+class PrimaryKeyConverter(val target: DefaultTableStore, threads: Int) extends Converter with Logging {
 
-  private val constraints = new collection.mutable.ListBuffer[Constraint]
+  private val primaryKeyMap = Collections.newMap[String, PrimaryKey]
 
-  def addConstraints(newContraints: Seq[Constraint]): Unit = {
-    constraints ++= newContraints
+  def add(newPks: Iterable[PrimaryKey]): Unit = {
+    newPks.foreach { pk => primaryKeyMap.put(pk.literalName, pk) }
   }
 
   def reset(): Unit = {
-
   }
 
   def start(): Unit = {
     val watch = new Stopwatch(true)
-    logger.info("Start constraint replication...")
-    for (constraint <- constraints.sorted) {
-      constraint match {
-        case fk: ForeignKey =>
-          val sql = target.engine.alterTable(fk.table).addForeignKey(fk)
-          try {
-            target.executor.update(sql)
-            logger.info(s"Apply constraint ${fk.name}")
-          } catch {
-            case e: Exception => logger.warn(s"Cannot execute $sql")
-          }
+    val pks = primaryKeyMap.values
+    logger.info(s"Start ${pks.size} primary keys replication in $threads threads...")
+    ThreadWorkers.work(pks, pk => {
+      val sql = target.engine.alterTable(pk.table).addPrimaryKey(pk)
+      try {
+        target.executor.update(sql)
+        logger.info(s"Apply ${pk.name}(${pk.table.qualifiedName})")
+      } catch {
+        case e: Exception => logger.warn(s"Cannot execute $sql")
       }
-    }
-    logger.info(s"End constraint replication,using $watch")
+    }, threads)
+    logger.info(s"Finish ${pks.size} primary keys replication,using $watch")
   }
+
 }
