@@ -23,11 +23,11 @@ import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.DataSourceUtils
 import org.beangle.data.jdbc.engine.StoreCase
 import org.beangle.data.jdbc.meta.{Schema, Table}
-import org.beangle.db.transport.Config.{TableConfig, Task}
+import org.beangle.db.transport.Config.{Source, TableConfig, Task}
 import org.beangle.db.transport.converter.*
 import org.beangle.db.transport.converter.TableConverter.TablePair
 
-import java.io.FileInputStream
+import java.io.{File, FileInputStream}
 import java.util.concurrent.LinkedBlockingQueue
 
 object Reactor extends Logging {
@@ -46,13 +46,8 @@ object Reactor extends Logging {
 
 class Reactor(val config: Config) extends Logging {
   def start() = {
-    var sw= new Stopwatch(true)
-    config.beforeActions foreach { acf =>
-      acf.category match {
-        case "script" => new SqlAction(config.source.dataSource, acf.properties("file")).process()
-        case _ => logger.warn("Cannot support " + acf.category)
-      }
-    }
+    val sw = new Stopwatch(true)
+    executeActions(config.source, config.beforeActions)
 
     val converters = new collection.mutable.ListBuffer[Converter]
 
@@ -124,12 +119,7 @@ class Reactor(val config: Config) extends Logging {
       converter.start()
     }
 
-    config.afterActions foreach { acf =>
-      acf.category match {
-        case "script" => new SqlAction(config.target.dataSource, acf.properties("file")).process()
-        case _ => logger.warn("Cannot support " + acf.category)
-      }
-    }
+    executeActions(config.target, config.afterActions)
     logger.info(s"transport complete using ${sw}")
   }
 
@@ -137,6 +127,26 @@ class Reactor(val config: Config) extends Logging {
     //cleanup
     DataSourceUtils.close(config.source.dataSource)
     DataSourceUtils.close(config.target.dataSource)
+  }
+
+  private def executeActions(source: Source, actions: Iterable[ActionConfig]): Unit = {
+    actions foreach { acf =>
+      acf.category match {
+        case "script" =>
+          acf.contents match
+            case Some(sqls) =>
+              logger.info("execute sql scripts")
+              SqlAction.execute(source.dataSource, sqls)
+            case None =>
+              if (acf.properties.contains("file")) {
+                val f = new File(acf.properties("file"))
+                require(f.exists(), "sql file:" + f.getAbsolutePath + " doesn't exists")
+                logger.info("execute sql scripts " + f.getAbsolutePath)
+                SqlAction.execute(source.dataSource, f)
+              }
+        case _ => logger.warn("Cannot support " + acf.category)
+      }
+    }
   }
 
   private def filterTables(tableConfig: TableConfig, srcSchema: Schema, targetSchema: Schema): List[Tuple2[Table, Table]] = {

@@ -30,20 +30,32 @@ trait Action {
   def process(): Boolean
 }
 
-case class ActionConfig(category: String, properties: Map[String, String])
+case class ActionConfig(category: String, contents: Option[String], properties: Map[String, String]) {}
 
-class SqlAction(val dataSource: DataSource, fileName: String) extends Action with Logging {
+object SqlAction {
+  def readSqls(file: File): Seq[String] = {
+    readSqls(IOs.readString(new FileInputStream(file)))
+  }
 
-  require(new File(fileName).exists(), "sql file:" + fileName + " doesnot exists")
+  def readSqls(contents: String): Seq[String] = {
+    val statements = Strings.split(contents, ";")
+    statements.map(x => x.replace('\r', '\n').trim).toList
+  }
+
+  def execute(dataSource: DataSource, contents: String): Unit = {
+    new SqlAction(dataSource, readSqls(contents)).process()
+  }
+
+  def execute(dataSource: DataSource, file: File): Unit = {
+    new SqlAction(dataSource, readSqls(file)).process()
+  }
+}
+
+class SqlAction(val dataSource: DataSource, sqls: Seq[String]) extends Action with Logging {
 
   def process(): Boolean = {
     val executor = new JdbcExecutor(dataSource)
-    executeFile(executor)
-  }
-
-  def executeFile(executor: JdbcExecutor): Boolean = {
-    logger.info("execute sql scripts " + fileName)
-    readSql(fileName) foreach { s =>
+    sqls foreach { s =>
       if (s.startsWith("--")) {
         var comment = Strings.substringBefore(s, "\n")
         comment = Strings.replace(comment, "--", "")
@@ -57,11 +69,5 @@ class SqlAction(val dataSource: DataSource, fileName: String) extends Action wit
       }
     }
     true
-  }
-
-  def readSql(name: String): Seq[String] = {
-    val content = IOs.readString(new FileInputStream(new File(name)))
-    val statements = Strings.split(content, ";")
-    statements.map(x => x.replace('\r', '\n').trim).toList
   }
 }

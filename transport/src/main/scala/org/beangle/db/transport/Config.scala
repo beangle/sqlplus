@@ -61,7 +61,7 @@ object Config {
 
   private def bulkSize(xml: scala.xml.Elem): Int = {
     val bs = (xml \ "@bulksize").text.trim
-    val defaultBulkSize = 100000
+    val defaultBulkSize = 50000
     Numbers.toInt(bs, defaultBulkSize)
   }
 
@@ -73,6 +73,7 @@ object Config {
       id += 1
       val from = source.parse((ele \ "@from").text)
       val to = target.parse((ele \ "@to").text)
+
       require(Strings.isNotBlank(from._2.value), "task need from schema property")
       require(Strings.isNotBlank(to._2.value), "task need from schema property")
 
@@ -108,13 +109,15 @@ object Config {
 
   private def beforeAction(xml: scala.xml.Elem): Iterable[ActionConfig] = {
     (xml \\ "actions" \\ "before" \\ "sql").map { x =>
-      ActionConfig("script", Map("file" -> (x \ "@file").text))
+      val contents = if (Strings.isBlank(x.text)) None else Some(x.text.trim())
+      ActionConfig("script", contents, Map("file" -> (x \ "@file").text))
     }
   }
 
   private def afterAction(xml: scala.xml.Elem): Iterable[ActionConfig] = {
     (xml \\ "actions" \\ "after" \\ "sql").map { x =>
-      ActionConfig("script", Map("file" -> (x \ "@file").text))
+      val contents = if (Strings.isBlank(x.text)) None else Some(x.text.trim())
+      ActionConfig("script", contents, Map("file" -> (x \ "@file").text))
     }
   }
 
