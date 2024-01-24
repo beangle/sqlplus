@@ -21,8 +21,7 @@ import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.meta.{Constraint, PrimaryKey, Table}
-import org.beangle.db.transport.converter.TableConverter.TablePair
-import org.beangle.db.transport.{Converter, TableStore}
+import org.beangle.db.transport.{Converter, Dataflow, TableStore}
 
 object TableConverter {
   val zero = '\u0000'
@@ -45,17 +44,18 @@ object TableConverter {
     }
   }
 
-  case class TablePair(src: Table, target: Table, srcCount: Int)
 }
 
 class TableConverter(val source: TableStore, val target: TableStore, val threads: Int,
                      val bulkSize: Int) extends Converter with Logging {
 
-  private val tablesMap = Collections.newMap[String, TablePair]
+  private val tablesMap = Collections.newMap[String, Dataflow]
+
+  override def payloadCount: Int = tablesMap.size
 
   var enableSanitize = false
 
-  def add(pairs: Iterable[TablePair]): Unit = {
+  def add(pairs: Iterable[Dataflow]): Unit = {
     pairs.foreach { t =>
       tablesMap.put(t.target.qualifiedName, t)
     }
@@ -74,7 +74,7 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
 
   def start(): Unit = {
     val watch = new Stopwatch(true)
-    val tables = tablesMap.values.toBuffer.sortBy(_.srcCount).reverse
+    val tables = tablesMap.values.toBuffer.sortBy(_.total).reverse
     val tableCount = tables.length
 
     //clean all table foreign keys
@@ -95,17 +95,16 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
     logger.info(s"Finish $tableCount tables data replication,using $watch")
   }
 
-  def convert(pair: TablePair): Unit = {
-    val srcTable = pair.src
+  def convert(pair: Dataflow): Unit = {
     val targetTable = pair.target
     try {
       target.truncate(targetTable)
 
-      if (pair.srcCount == 0) {
+      if (pair.total == 0) {
         target.save(targetTable, List.empty)
         logger.info(s"Insert $targetTable(0)")
       } else {
-        val dataIter = source.select(srcTable)
+        val dataIter = source.select(pair.src, pair.where)
         val data = Collections.newBuffer[Array[Any]]
         var finished = 0
         var batchIndex = 0
@@ -114,13 +113,13 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
             data += dataIter.next()
             finished += 1
             if (finished % bulkSize == 0) {
-              insert(targetTable, data, finished, pair.srcCount, batchIndex)
+              insert(targetTable, data, finished, pair.total, batchIndex)
               batchIndex += 1
               data.clear()
             }
           }
           if (data.nonEmpty) {
-            insert(targetTable, data, finished, pair.srcCount, batchIndex)
+            insert(targetTable, data, finished, pair.total, batchIndex)
           }
         } catch {
           case e: Exception => logger.error(s"Insert error ${targetTable.qualifiedName}", e)

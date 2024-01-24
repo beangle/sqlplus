@@ -27,6 +27,7 @@ class SequenceConverter(val target: DefaultTableStore) extends Converter with Lo
 
   private val sequenceMap = Collections.newMap[String, Sequence]
 
+  override def payloadCount: Int = sequenceMap.size
   def add(ns: Iterable[Sequence]): Unit = {
     ns.foreach(x => sequenceMap.put(x.qualifiedName, x))
   }

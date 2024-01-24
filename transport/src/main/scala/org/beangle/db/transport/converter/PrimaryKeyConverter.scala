@@ -31,6 +31,7 @@ class PrimaryKeyConverter(val target: DefaultTableStore, threads: Int) extends C
     newPks.foreach { pk => primaryKeyMap.put(pk.literalName, pk) }
   }
 
+  override def payloadCount: Int = primaryKeyMap.size
   def reset(): Unit = {
   }
 

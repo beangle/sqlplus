@@ -20,12 +20,14 @@ package org.beangle.db.transport.converter
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.meta.{Index, Table}
+import org.beangle.data.jdbc.meta.Index
 import org.beangle.db.transport.Converter
 
 class IndexConverter(val target: DefaultTableStore, val threads: Int) extends Converter with Logging {
 
   private val idxMap = Collections.newMap[String, Index]
+
+  override def payloadCount: Int = idxMap.size
 
   def add(indxes: Iterable[Index]): Unit = {
     indxes.foreach(x => idxMap.put(x.literalName, _))

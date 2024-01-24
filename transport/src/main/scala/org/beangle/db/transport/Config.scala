@@ -21,11 +21,12 @@ import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.{Numbers, Strings}
 import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.data.jdbc.engine.{Engine, Engines}
-import org.beangle.data.jdbc.meta.Identifier
 import org.beangle.data.jdbc.meta.Schema.NameFilter
+import org.beangle.data.jdbc.meta.{Identifier, Relation}
 import org.beangle.db.transport.Config.Source
 
 import javax.sql.DataSource
+import scala.xml.Node
 
 object Config {
 
@@ -65,14 +66,22 @@ object Config {
     Numbers.toInt(bs, defaultBulkSize)
   }
 
+  private def attr(n: Node, name: String): String = {
+    (n \ s"@${name}").text.trim()
+  }
+
+  private def lowcaseAttr(n: Node, name: String): String = {
+    (n \ s"@${name}").text.toLowerCase.trim()
+  }
+
   private def tasks(xml: scala.xml.Elem, source: Config.Source, target: Config.Source): Seq[Task] = {
     val tasks = Collections.newBuffer[Task]
     var id = 0
     (xml \\ "task") foreach { ele =>
       val task = new Task(id, source, target)
       id += 1
-      val from = source.parse((ele \ "@from").text)
-      val to = target.parse((ele \ "@to").text)
+      val from = source.parse(attr(ele, "from"))
+      val to = target.parse(attr(ele, "to"))
 
       require(Strings.isNotBlank(from._2.value), "task need from schema property")
       require(Strings.isNotBlank(to._2.value), "task need from schema property")
@@ -86,7 +95,17 @@ object Config {
       tableConfig.withConstraint = "true" == (xml \\ "tables" \ "@constraint").text
       tableConfig.includes = (xml \\ "tables" \\ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
       tableConfig.excludes = (xml \\ "tables" \\ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      tableConfig.wheres = (xml \\ "tables" \\ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
       task.table = tableConfig
+
+      val viewConfig = new ViewConfig
+      (ele \\ "views" \ "@lowercase") foreach { e =>
+        if (e.text == "true") viewConfig.lowercase = Some(true)
+      }
+      viewConfig.includes = (xml \\ "views" \\ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      viewConfig.excludes = (xml \\ "views" \\ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      viewConfig.wheres = (xml \\ "views" \\ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
+      task.view = viewConfig
 
       val seqConfig = new SeqConfig
       seqConfig.includes = Strings.split((xml \\ "sequences" \\ "includes").text.trim).toSeq
@@ -121,12 +140,11 @@ object Config {
     }
   }
 
-  final class TableConfig {
+  abstract class DataflowConfig {
     var includes: Seq[String] = _
     var excludes: Seq[String] = _
     var lowercase: Option[Boolean] = None
-    var withIndex: Boolean = true
-    var withConstraint: Boolean = true
+    var wheres: Map[String, String] = Map.empty
 
     def buildNameFilter(): NameFilter = {
       val filter = new NameFilter()
@@ -134,6 +152,18 @@ object Config {
       for (exclude <- excludes) filter.exclude(exclude)
       filter
     }
+
+    def getWhere(r: Relation): Option[String] = {
+      wheres.get(r.name.value.toLowerCase)
+    }
+  }
+
+  final class TableConfig extends DataflowConfig {
+    var withIndex: Boolean = true
+    var withConstraint: Boolean = true
+  }
+
+  final class ViewConfig extends DataflowConfig {
   }
 
   final class SeqConfig {
@@ -157,6 +187,7 @@ object Config {
 
   class Task(var id: Int, val source: Config.Source, val target: Config.Source) {
     var table: TableConfig = _
+    var view: ViewConfig = _
     var sequence: SeqConfig = _
 
     def path(from: (Option[Identifier], Identifier), to: (Option[Identifier], Identifier)): Unit = {

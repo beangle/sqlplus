@@ -35,7 +35,7 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
   val database = new Database(engine)
   private val loadedSchemas = Collections.newSet[String]
 
-  def loadMetas(catalog: Option[Identifier], schemaName: Identifier, nameFilter: NameFilter, loadTableExtra: Boolean, loadSequence: Boolean): Unit = {
+  def loadMetas(catalog: Option[Identifier], schemaName: Identifier, tableFilter: NameFilter, viewFilter: NameFilter): Unit = {
     var conn: Connection = null
     try {
       val schema = getSchema(catalog, schemaName)
@@ -45,8 +45,9 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
         logger.info(s"loading ${schemaName} metas ...")
         conn = dataSource.getConnection
         val loader = new MetadataLoader(conn.getMetaData, engine)
-        loader.loadTables(schema, nameFilter, loadTableExtra)
-        if (loadSequence) loader.loadSequences(schema)
+        loader.loadTables(schema, tableFilter, true)
+        loader.loadViews(schema, viewFilter)
+        loader.loadSequences(schema)
         loadedSchemas.addOne(schemaLiteralName)
       }
     } finally {
@@ -194,12 +195,17 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
     }
   }
 
-  override def count(table: Table): Int = {
-    executor.queryForInt("select count(*) from " + table.qualifiedName + " tb").get
+  override def count(table: Relation, where: Option[String]): Int = {
+    executor.queryForInt(buildQueryString(table, where, true)).get
   }
 
-  override def select(table: Table): ResultSetIterator = {
-    executor.iterate(engine.query(table))
+  override def select(r: Relation, where: Option[String]): ResultSetIterator = {
+    executor.iterate(buildQueryString(r, where, false))
+  }
+
+  private def buildQueryString(r: Relation, where: Option[String], countOnly: Boolean): String = {
+    val filter = where.map(x => " _tb_ where " + Strings.replace(x, "$tab", "_tb_"))
+    s"select ${if countOnly then "count(*)" else "*"} from " + r.qualifiedName + filter.getOrElse("")
   }
 
   override def save(table: Table, datas: collection.Seq[Array[_]]): Int = {

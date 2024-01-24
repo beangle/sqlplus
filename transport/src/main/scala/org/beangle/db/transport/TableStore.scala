@@ -18,12 +18,12 @@
 package org.beangle.db.transport
 
 import org.beangle.data.jdbc.engine.Engine
-import org.beangle.data.jdbc.meta.Table
+import org.beangle.data.jdbc.meta.{Relation, Table}
 import org.beangle.data.jdbc.query.ResultSetIterator
 
 trait TableStore {
 
-  def select(table: Table): ResultSetIterator
+  def select(r: Relation, where: Option[String]): ResultSetIterator
 
   def get(table: Table): Option[Table]
 
@@ -48,7 +48,7 @@ trait TableStore {
 
   def close(): Unit
 
-  def count(table: Table): Int
+  def count(table: Relation, where: Option[String]): Int
 
   def engine: Engine
 

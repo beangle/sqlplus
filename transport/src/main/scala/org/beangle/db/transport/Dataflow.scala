@@ -17,23 +17,6 @@
 
 package org.beangle.db.transport
 
-trait Converter {
+import org.beangle.data.jdbc.meta.{Relation, Table}
 
-  /**
-   * 设置目标数据源
-   */
-  def target: TableStore
-
-  /**
-   * 重新开始
-   */
-  def reset(): Unit
-
-  /**
-   * 开始导入
-   */
-  def start(): Unit
-
-  def payloadCount: Int
-
-}
+case class Dataflow(src: Relation, target: Table, where: Option[String], total: Int)

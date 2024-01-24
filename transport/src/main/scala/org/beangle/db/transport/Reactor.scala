@@ -22,10 +22,10 @@ import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.DataSourceUtils
 import org.beangle.data.jdbc.engine.StoreCase
-import org.beangle.data.jdbc.meta.{Schema, Table}
-import org.beangle.db.transport.Config.{Source, TableConfig, Task}
+import org.beangle.data.jdbc.meta.Schema.NameFilter
+import org.beangle.data.jdbc.meta.{Schema, Table, View}
+import org.beangle.db.transport.Config.*
 import org.beangle.db.transport.converter.*
-import org.beangle.db.transport.converter.TableConverter.TablePair
 
 import java.io.{File, FileInputStream}
 import java.util.concurrent.LinkedBlockingQueue
@@ -53,26 +53,39 @@ class Reactor(val config: Config) extends Logging {
 
     val source = new DefaultTableStore(config.source.dataSource, config.source.engine)
     val target = new DefaultTableStore(config.target.dataSource, config.target.engine)
+    val allFilter = new NameFilter()
+    allFilter.include("*")
     config.tasks foreach { task =>
-      source.loadMetas(task.fromCatalog, task.fromSchema, task.table.buildNameFilter(), true, true)
-      target.loadMetas(task.toCatalog, task.toSchema, task.table.buildNameFilter(), true, true)
+      source.loadMetas(task.fromCatalog, task.fromSchema, task.table.buildNameFilter(), task.view.buildNameFilter())
+      //we should load all target object ignore src filter
+      //case 1: exclude all table,just transport view.so we need load target table
+      target.loadMetas(task.toCatalog, task.toSchema, allFilter, allFilter)
       target.createSchema(task.toSchema)
     }
 
     val dataConverter = new TableConverter(source, target, config.maxthreads, config.bulkSize)
 
-    val taskTables = Collections.newMap[Task, Iterable[TablePair]]
+    val taskTables = Collections.newMap[Task, Iterable[Dataflow]]
     config.tasks foreach { task =>
       val srcSchema = source.getSchema(task.fromCatalog, task.fromSchema)
       val targetSchema = target.getSchema(task.toCatalog, task.toSchema)
       val tables = filterTables(task.table, srcSchema, targetSchema)
+      val views = filterViews(task.view, srcSchema, targetSchema)
 
       val dataRange = config.dataRange
-      val pairs = new LinkedBlockingQueue[TablePair]
+      val pairs = new LinkedBlockingQueue[Dataflow]
       ThreadWorkers.work(tables, p => {
-        val srcCount = source.count(p._1)
-        if (dataRange._1 <= srcCount && srcCount <= dataRange._2) {
-          pairs.add(TablePair(p._1, p._2, srcCount))
+        val where = task.table.getWhere(p._1)
+        val total = source.count(p._1, where)
+        if (dataRange._1 <= total && total <= dataRange._2) {
+          pairs.add(Dataflow(p._1, p._2, where, total))
+        }
+      }, config.maxthreads)
+      ThreadWorkers.work(views, p => {
+        val where = task.view.getWhere(p._1)
+        val total = source.count(p._1, where)
+        if (dataRange._1 <= total && total <= dataRange._2) {
+          pairs.add(Dataflow(p._1, p._2, where, total))
         }
       }, config.maxthreads)
       import scala.jdk.CollectionConverters.*
@@ -82,23 +95,26 @@ class Reactor(val config: Config) extends Logging {
 
     converters += dataConverter
 
-    val pkConverter = new PrimaryKeyConverter(target, config.maxthreads)
-    pkConverter.add(dataConverter.primaryKeys)
-    converters += pkConverter
+    val pks = dataConverter.primaryKeys
+    if (pks.nonEmpty) {
+      val pkConverter = new PrimaryKeyConverter(target, config.maxthreads)
+      pkConverter.add(pks)
+      converters += pkConverter
+    }
 
     val indexConverter = new IndexConverter(target, config.maxthreads)
     config.tasks foreach { task =>
       if task.table.withIndex then
         indexConverter.add(taskTables(task).flatten(_.target.indexes))
     }
-    converters += indexConverter
+    if indexConverter.payloadCount > 0 then converters += indexConverter
 
     val constraintConverter = new ConstraintConverter(target, config.maxthreads)
     config.tasks foreach { task =>
       if task.table.withConstraint then
         constraintConverter.add(taskTables(task).flatten(_.target.foreignKeys))
     }
-    converters += constraintConverter
+    if constraintConverter.payloadCount > 0 then converters += constraintConverter
 
     val sequenceConverter = new SequenceConverter(target)
     config.tasks foreach { task =>
@@ -113,7 +129,7 @@ class Reactor(val config: Config) extends Logging {
       }
       sequenceConverter.add(sequences)
     }
-    converters += sequenceConverter
+    if sequenceConverter.payloadCount > 0 then converters += sequenceConverter
 
     for (converter <- converters) {
       converter.start()
@@ -149,20 +165,35 @@ class Reactor(val config: Config) extends Logging {
     }
   }
 
-  private def filterTables(tableConfig: TableConfig, srcSchema: Schema, targetSchema: Schema): List[Tuple2[Table, Table]] = {
-    val tables = srcSchema.filterTables(tableConfig.includes, tableConfig.excludes)
-    val tablePairs = Collections.newMap[String, (Table, Table)]
+  private def filterTables(cfg: TableConfig, srcSchema: Schema, targetSchema: Schema): List[(Table, Table, Option[String])] = {
+    val tables = srcSchema.filterTables(cfg.includes, cfg.excludes)
+    val tablePairs = Collections.newMap[String, (Table, Table, Option[String])]
 
-    for (srcTable <- tables) {
-      val targetTable = srcTable.clone()
-      targetTable.updateSchema(targetSchema)
-      tableConfig.lowercase foreach { lowercase =>
-        if (lowercase) targetTable.toCase(true)
+    for (src <- tables) {
+      val tar = src.clone()
+      tar.updateSchema(targetSchema)
+      cfg.lowercase foreach { lowercase =>
+        if (lowercase) tar.toCase(true)
       }
-      targetTable.attach(targetSchema.database.engine)
-      tablePairs.put(targetTable.name.toString, srcTable -> targetTable)
+      tar.attach(targetSchema.database.engine)
+      tablePairs.put(tar.name.toString, (src, tar, cfg.getWhere(src)))
     }
     tablePairs.values.toList
   }
 
+  private def filterViews(cfg: ViewConfig, srcSchema: Schema, targetSchema: Schema): List[(View, Table, Option[String])] = {
+    val views = srcSchema.filterViews(cfg.includes, cfg.excludes)
+    val tablePairs = Collections.newMap[String, (View, Table, Option[String])]
+
+    for (src <- views) {
+      val tar = src.toTable
+      tar.updateSchema(targetSchema)
+      cfg.lowercase foreach { lowercase =>
+        if (lowercase) tar.toCase(true)
+      }
+      tar.attach(targetSchema.database.engine)
+      tablePairs.put(tar.name.toString, (src, tar, cfg.getWhere(src)))
+    }
+    tablePairs.values.toList
+  }
 }

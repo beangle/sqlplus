@@ -27,6 +27,8 @@ class ConstraintConverter(val target: DefaultTableStore, val threads: Int) exten
 
   private val constraintMap = Collections.newMap[String, Constraint]
 
+  override def payloadCount: Int = constraintMap.size
+
   def add(cs: Iterable[Constraint]): Unit = {
     cs foreach { c => constraintMap.put(c.literalName, c) }
   }

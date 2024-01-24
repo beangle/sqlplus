@@ -15,8 +15,12 @@
 
   <task from="ems" to="ems1">
     <tables lowercase="true" index="true" constraint="true" >
-      <includes>*</includes>
-      <excludes></excludes>
+      <includes></includes>
+      <excludes>*</excludes>
     </tables>
+    <views>
+      <includes>*</includes>
+      <where table="user2" value="exists(select * from ems.usr_profiles p where p.user_id=$tab.id)"/>
+    </views>
   </task>
 </transport>
