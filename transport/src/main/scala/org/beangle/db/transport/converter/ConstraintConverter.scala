@@ -18,6 +18,7 @@
 package org.beangle.db.transport.converter
 
 import org.beangle.commons.collection.Collections
+import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.meta.{Constraint, ForeignKey}
@@ -42,7 +43,7 @@ class ConstraintConverter(val target: DefaultTableStore, val threads: Int) exten
     val cnt = constraints.size
     val watch = new Stopwatch(true)
     logger.info(s"Start $cnt constraints replication in $threads threads...")
-    ThreadWorkers.work(constraints, {
+    Workers.work(constraints, {
       case fk: ForeignKey =>
         val sql = target.engine.alterTable(fk.table).addForeignKey(fk)
         try {

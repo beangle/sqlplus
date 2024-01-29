@@ -18,6 +18,7 @@
 package org.beangle.db.transport.converter
 
 import org.beangle.commons.collection.Collections
+import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.meta.Index
@@ -41,7 +42,7 @@ class IndexConverter(val target: DefaultTableStore, val threads: Int) extends Co
     val indexCount = indexes.size
     logger.info(s"Start $indexCount indexes replication in $threads threads...")
     val watch = new Stopwatch(true)
-    ThreadWorkers.work(indexes, index => {
+    Workers.work(indexes, index => {
       try {
         target.executor.update(target.engine.createIndex(index))
         logger.info(s"Create index ${index.name}")

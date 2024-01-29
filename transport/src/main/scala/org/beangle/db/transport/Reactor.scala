@@ -18,6 +18,7 @@
 package org.beangle.db.transport
 
 import org.beangle.commons.collection.Collections
+import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.ds.DataSourceUtils
@@ -74,14 +75,14 @@ class Reactor(val config: Config) extends Logging {
 
       val dataRange = config.dataRange
       val pairs = new LinkedBlockingQueue[Dataflow]
-      ThreadWorkers.work(tables, p => {
+      Workers.work(tables, p => {
         val where = task.table.getWhere(p._1)
         val total = source.count(p._1, where)
         if (dataRange._1 <= total && total <= dataRange._2) {
           pairs.add(Dataflow(p._1, p._2, where, total))
         }
       }, config.maxthreads)
-      ThreadWorkers.work(views, p => {
+      Workers.work(views, p => {
         val where = task.view.getWhere(p._1)
         val total = source.count(p._1, where)
         if (dataRange._1 <= total && total <= dataRange._2) {

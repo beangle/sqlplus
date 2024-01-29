@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<transport maxthreads="15">
+<transport maxthreads="2">
   <source>
     <driver>oracle</driver>
     <url>jdbc:oracle:thin:@localhost:1521:orcl</url>
-    <user>user</user>
+    <user>eams</user>
     <password>pwd</password>
   </source>
   <target>
@@ -13,7 +13,7 @@
     <password>postgres</password>
   </target>
 
-  <task from="eams" to="eams">
+  <task from="edu" to="edu">
     <tables lowercase="true" index="true">
       <includes>*</includes>
       <excludes>tmp*,*bak,*{[0-9]+},*old</excludes>

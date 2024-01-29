@@ -18,6 +18,7 @@
 package org.beangle.db.transport.converter
 
 import org.beangle.commons.collection.Collections
+import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.meta.PrimaryKey
@@ -39,7 +40,7 @@ class PrimaryKeyConverter(val target: DefaultTableStore, threads: Int) extends C
     val watch = new Stopwatch(true)
     val pks = primaryKeyMap.values
     logger.info(s"Start ${pks.size} primary keys replication in $threads threads...")
-    ThreadWorkers.work(pks, pk => {
+    Workers.work(pks, pk => {
       val sql = target.engine.alterTable(pk.table).addPrimaryKey(pk)
       try {
         target.executor.update(sql)

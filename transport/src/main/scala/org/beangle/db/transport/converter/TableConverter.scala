@@ -18,6 +18,7 @@
 package org.beangle.db.transport.converter
 
 import org.beangle.commons.collection.Collections
+import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
 import org.beangle.data.jdbc.meta.{Constraint, PrimaryKey, Table}
@@ -78,18 +79,18 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
     val tableCount = tables.length
 
     //clean all table foreign keys
-    ThreadWorkers.work(tables, p => {
+    Workers.work(tables, p => {
       target.cleanForeignKeys(p.target)
     }, threads)
 
     //prepare and recreate table when necessary,don't clean data
-    ThreadWorkers.work(tables, p => {
+    Workers.work(tables, p => {
       target.clean(p.target)
     }, threads)
 
     logger.info(s"Start $tableCount tables data replication in $threads threads...")
     //按照数量降序进行同步，数据量越大的，越早开始
-    ThreadWorkers.work(tables, tablePair => {
+    Workers.work(tables, tablePair => {
       convert(tablePair)
     }, threads)
     logger.info(s"Finish $tableCount tables data replication,using $watch")
