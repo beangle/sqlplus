@@ -43,13 +43,13 @@ download(){
 
 export scala_ver=2.13.12
 export scala3_ver=3.3.1
-export beangle_commons_ver=5.6.10
-export beangle_template_ver=0.1.10
+export beangle_commons_ver=5.6.10-SNAPSHOT
+export beangle_template_ver=0.1.10-SNAPSHOT
 export slf4j_ver=2.0.10
 export logback_ver=1.4.14
 export commons_compress_ver=1.25.0
 export boot_ver=0.1.7
-export beangle_db_ver=0.0.32
+export beangle_db_ver=0.0.32-SNAPSHOT
 
 download org.scala-lang scala-library $scala_ver
 download org.scala-lang scala-reflect $scala_ver
@@ -62,9 +62,8 @@ download org.slf4j slf4j-api $slf4j_ver
 download ch.qos.logback logback-core $logback_ver
 download ch.qos.logback logback-classic $logback_ver
 download org.beangle.db beangle-db-shell_3 $beangle_db_ver
-download org.beangle.db beangle-db-transport_3 $beangle_db_ver
 
-jarfile="$M2_REPO/org/beangle/db/beangle-db-transport_3/$beangle_db_ver/beangle-db-transport_3-$beangle_db_ver.jar"
+jarfile="$M2_REPO/org/beangle/db/beangle-db-shell_3/$beangle_db_ver/beangle-db-shell_3-$beangle_db_ver.jar"
 
 if [[ -f $jarfile ]];then
   args="$@"
@@ -79,5 +78,5 @@ if [[ -f $jarfile ]];then
      echo $info
   fi
 else
-  echo "Cannot find $jarfile,Transportation was aborted."
+  echo "Cannot find $jarfile,database shell startup was aborted."
 fi

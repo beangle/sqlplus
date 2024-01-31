@@ -16,10 +16,10 @@ primary key:${table.primaryKey.name}([#list table.primaryKey.columns as column]$
 [#if table.uniqueKeys?size gt 0]
 constraints:
 [#list table.uniqueKeys as uniqueKey]
-  ${uniqueKey.name} ([#list uniqueKey.columns as column]${column}[#sep],[/#list])
+  ${uniqueKey.name}([#list uniqueKey.columns as column]${column}[#sep],[/#list]) unique
 [/#list]
 [#list table.foreignKeys as foreignKey]
-  ${foreignKey.name}([#list uniqueKey.columns as column]${column}[#sep],[/#list]) references ${foreignKey.referencedTable.name}([#list foreignKey.referencedColumns as column]${column}[#sep],[/#list])
+  ${foreignKey.name}([#list foreignKey.columns as column]${column}[#sep],[/#list]) references ${foreignKey.referencedTable.name}([#list foreignKey.referencedColumns as column]${column}[#sep],[/#list])
 [/#list]
 [/#if]
 [#if table.indexes?size gt 0]

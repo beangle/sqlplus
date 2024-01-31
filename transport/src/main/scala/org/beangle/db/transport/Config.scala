@@ -206,7 +206,6 @@ object Config {
     var excludes: Seq[String] = _
   }
 
-
   class Task(val source: Source, val target: Source) {
     var table: TableConfig = _
     var view: ViewConfig = _
@@ -227,7 +226,6 @@ object Config {
     var toCatalog: Option[Identifier] = None
   }
 }
-
 
 class Config(val source: Source, val target: Source,
              val tasks: collection.Seq[Config.Task], val maxthreads: Int,
