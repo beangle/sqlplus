@@ -61,6 +61,7 @@ download org.beangle.boot beangle-boot_3 $boot_ver
 download org.slf4j slf4j-api $slf4j_ver
 download ch.qos.logback logback-core $logback_ver
 download ch.qos.logback logback-classic $logback_ver
+download org.beangle.db beangle-db-shell_3 $beangle_db_ver
 download org.beangle.db beangle-db-transport_3 $beangle_db_ver
 
 jarfile="$M2_REPO/org/beangle/db/beangle-db-transport_3/$beangle_db_ver/beangle-db-transport_3-$beangle_db_ver.jar"

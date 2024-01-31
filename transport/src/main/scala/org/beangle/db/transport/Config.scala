@@ -18,19 +18,24 @@
 package org.beangle.db.transport
 
 import org.beangle.commons.collection.Collections
+import org.beangle.commons.io.Files
 import org.beangle.commons.lang.{Numbers, Strings}
-import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
+import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils, Source}
 import org.beangle.data.jdbc.engine.{Engine, Engines}
 import org.beangle.data.jdbc.meta.Schema.NameFilter
 import org.beangle.data.jdbc.meta.{Identifier, Relation}
-import org.beangle.db.transport.Config.Source
 
+import java.io.InputStream
 import javax.sql.DataSource
-import scala.xml.Node
+import scala.collection.immutable.Seq
+import scala.xml.{Node, NodeSeq}
 
 object Config {
 
-  def apply(xml: scala.xml.Elem): Config = {
+  private val defaultBulkSize = 50000
+
+  def apply(workdir: String, is: InputStream): Config = {
+    val xml = scala.xml.XML.load(is)
     val threads = Config.maxtheads(xml)
     val source = Config.db(xml, "source", threads)
     val target = Config.db(xml, "target", threads)
@@ -38,9 +43,14 @@ object Config {
     val config = new Config(source, target, tasks, threads,
       Config.bulkSize(xml), Config.datarange(xml))
 
-    config.beforeActions = beforeAction(xml)
-    config.afterActions = afterAction(xml)
+    config.beforeActions = actions(workdir, xml \\ "actions" \\ "before" \\ "sql")
+    config.afterActions = actions(workdir, xml \\ "actions" \\ "after" \\ "sql")
     config
+  }
+
+  def apply(source: Source, target: Source,
+            tasks: collection.Seq[Config.Task]): Config = {
+    new Config(source, target, tasks, Runtime.getRuntime.availableProcessors(), defaultBulkSize, (1, 10000000))
   }
 
   private def maxtheads(xml: scala.xml.Elem): Int = {
@@ -62,7 +72,6 @@ object Config {
 
   private def bulkSize(xml: scala.xml.Elem): Int = {
     val bs = (xml \ "@bulksize").text.trim
-    val defaultBulkSize = 50000
     Numbers.toInt(bs, defaultBulkSize)
   }
 
@@ -74,17 +83,15 @@ object Config {
     (n \ s"@${name}").text.toLowerCase.trim()
   }
 
-  private def tasks(xml: scala.xml.Elem, source: Config.Source, target: Config.Source): Seq[Task] = {
+  private def tasks(xml: scala.xml.Elem, source: Source, target: Source): Seq[Task] = {
     val tasks = Collections.newBuffer[Task]
-    var id = 0
     (xml \\ "task") foreach { ele =>
-      val task = new Task(id, source, target)
-      id += 1
+      val task = new Task(source, target)
       val from = source.parse(attr(ele, "from"))
       val to = target.parse(attr(ele, "to"))
 
       require(Strings.isNotBlank(from._2.value), "task need from schema property")
-      require(Strings.isNotBlank(to._2.value), "task need from schema property")
+      require(Strings.isNotBlank(to._2.value), "task need to schema property")
 
       task.path(from, to)
       val tableConfig = new TableConfig
@@ -122,27 +129,27 @@ object Config {
     if (maximumPoolSize <= threads) {
       dbconf.props.put("maximumPoolSize", (threads + 1).toString)
     }
-    val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
-    new Source(Engines.forDataSource(ds), ds)
+    Source(dbconf)
   }
 
-  private def beforeAction(xml: scala.xml.Elem): Iterable[ActionConfig] = {
-    (xml \\ "actions" \\ "before" \\ "sql").map { x =>
+  private def actions(workdir: String, nodes: NodeSeq): Iterable[ActionConfig] = {
+    nodes.flatMap { x =>
       val contents = if (Strings.isBlank(x.text)) None else Some(x.text.trim())
-      ActionConfig("script", contents, Map("file" -> (x \ "@file").text))
-    }
-  }
-
-  private def afterAction(xml: scala.xml.Elem): Iterable[ActionConfig] = {
-    (xml \\ "actions" \\ "after" \\ "sql").map { x =>
-      val contents = if (Strings.isBlank(x.text)) None else Some(x.text.trim())
-      ActionConfig("script", contents, Map("file" -> (x \ "@file").text))
+      if (contents.isEmpty) {
+        var filePath = (x \ "@file").text
+        if (Strings.isNotBlank(filePath)) {
+          filePath = Files.forName(workdir, filePath).getAbsolutePath
+          Some(ActionConfig("script", contents, Map("file" -> filePath)))
+        } else None
+      } else {
+        Some(ActionConfig("script", contents, Map.empty))
+      }
     }
   }
 
   abstract class DataflowConfig {
-    var includes: Seq[String] = _
-    var excludes: Seq[String] = _
+    var includes: Seq[String] = List.empty
+    var excludes: Seq[String] = List.empty
     var lowercase: Option[Boolean] = None
     var wheres: Map[String, String] = Map.empty
 
@@ -155,6 +162,34 @@ object Config {
 
     def getWhere(r: Relation): Option[String] = {
       wheres.get(r.name.value.toLowerCase)
+    }
+  }
+
+  object TableConfig {
+    def all: TableConfig = {
+      val cfg = new TableConfig
+      cfg.includes = Seq("*")
+      cfg
+    }
+
+    def none: TableConfig = {
+      val cfg = new TableConfig
+      cfg.excludes = Seq("*")
+      cfg
+    }
+  }
+
+  object ViewConfig {
+    def all: ViewConfig = {
+      val cfg = new ViewConfig
+      cfg.includes = Seq("*")
+      cfg
+    }
+
+    def none: ViewConfig = {
+      val cfg = new ViewConfig
+      cfg.excludes = Seq("*")
+      cfg
     }
   }
 
@@ -171,53 +206,34 @@ object Config {
     var excludes: Seq[String] = _
   }
 
-  class Source(val engine: Engine, val dataSource: DataSource) {
-    def parse(schemaName: String): (Option[Identifier], Identifier) = {
-      if (schemaName.isBlank) {
-        (None, engine.toIdentifier(engine.defaultSchema))
-      } else if (schemaName.contains(".")) {
-        val c = Strings.substringBefore(schemaName, ".")
-        val s = Strings.substringBefore(schemaName, ".")
-        (Option(engine.toIdentifier(c)), engine.toIdentifier(s))
-      } else {
-        (None, engine.toIdentifier(schemaName))
-      }
-    }
-  }
 
-  class Task(var id: Int, val source: Config.Source, val target: Config.Source) {
+  class Task(val source: Source, val target: Source) {
     var table: TableConfig = _
     var view: ViewConfig = _
     var sequence: SeqConfig = _
 
-    def path(from: (Option[Identifier], Identifier), to: (Option[Identifier], Identifier)): Unit = {
+    def path(from: (Option[Identifier], Identifier), to: (Option[Identifier], Identifier)): this.type = {
       this.fromCatalog = from._1
       this.fromSchema = from._2
 
       this.toCatalog = to._1
       this.toSchema = to._2
+      this
     }
 
     var fromSchema: Identifier = _
     var fromCatalog: Option[Identifier] = None
     var toSchema: Identifier = _
     var toCatalog: Option[Identifier] = None
-
-    override def equals(obj: Any): Boolean = {
-      obj match
-        case o: Task => o.id == this.id
-        case _ => false
-    }
-
-    override def hashCode(): Int = id
   }
 }
 
-class Config(val source: Config.Source, val target: Config.Source,
-             val tasks: Seq[Config.Task], val maxthreads: Int,
+
+class Config(val source: Source, val target: Source,
+             val tasks: collection.Seq[Config.Task], val maxthreads: Int,
              val bulkSize: Int,
              val dataRange: (Int, Int)) {
 
-  var beforeActions: Iterable[ActionConfig] = _
-  var afterActions: Iterable[ActionConfig] = _
+  var beforeActions: Iterable[ActionConfig] = List.empty
+  var afterActions: Iterable[ActionConfig] = List.empty
 }

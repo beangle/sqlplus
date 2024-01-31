@@ -42,7 +42,7 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
       val schemaLiteralName = schema.name.toLiteral(engine)
 
       if (!loadedSchemas.contains(schemaLiteralName)) {
-        logger.info(s"loading ${schemaName} metas ...")
+        logger.info(s"loading ${schemaName.value} metas ...")
         conn = dataSource.getConnection
         val loader = new MetadataLoader(conn.getMetaData, engine)
         loader.loadTables(schema, tableFilter, true)
@@ -56,11 +56,17 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
   }
 
   def createSchema(schemaName: Identifier): Unit = {
-    val loader = new MetadataLoader(dataSource.getConnection.getMetaData, engine)
-    val schemas = loader.schemas()
-    if (!schemas.map(_.toLowerCase).contains(schemaName.value.toLowerCase)) {
-      val createSchemaSql = engine.createSchema(schemaName.toString)
-      if Strings.isNotBlank(createSchemaSql) then executor.update(createSchemaSql)
+    var conn: Connection = null
+    try {
+      conn = dataSource.getConnection
+      val loader = new MetadataLoader(conn.getMetaData, engine)
+      val schemas = loader.schemas()
+      if (!schemas.map(_.toLowerCase).contains(schemaName.value.toLowerCase)) {
+        val createSchemaSql = engine.createSchema(schemaName.value)
+        if Strings.isNotBlank(createSchemaSql) then executor.update(createSchemaSql)
+      }
+    } finally {
+      IOs.close(conn)
     }
   }
 

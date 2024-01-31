@@ -21,7 +21,7 @@ import org.beangle.commons.collection.Collections
 import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.commons.logging.Logging
-import org.beangle.data.jdbc.ds.DataSourceUtils
+import org.beangle.data.jdbc.ds.{DataSourceUtils, Source}
 import org.beangle.data.jdbc.engine.StoreCase
 import org.beangle.data.jdbc.meta.Schema.NameFilter
 import org.beangle.data.jdbc.meta.{Schema, Table, View}
@@ -38,8 +38,7 @@ object Reactor extends Logging {
       println("Usage: Reactor /path/to/your/conversion.xml");
       return
     }
-    val xml = scala.xml.XML.load(new FileInputStream(args(0)))
-    val reactor = new Reactor(Config(xml))
+    val reactor = new Reactor(Config(new File(args(0)).getParent, new FileInputStream(args(0))))
     reactor.start()
     reactor.close()
   }
@@ -120,15 +119,17 @@ class Reactor(val config: Config) extends Logging {
     val sequenceConverter = new SequenceConverter(target)
     config.tasks foreach { task =>
       val srcSchema = source.getSchema(task.fromCatalog, task.fromSchema)
-      val sequences = srcSchema.filterSequences(task.sequence.includes, task.sequence.excludes)
-      sequences foreach { n =>
-        n.schema = target.getSchema(task.toCatalog, task.toSchema)
-        if (config.target.engine.storeCase != StoreCase.Mixed) {
-          n.toCase(config.target.engine.storeCase == StoreCase.Lower)
+      if (null != task.sequence) {
+        val sequences = srcSchema.filterSequences(task.sequence.includes, task.sequence.excludes)
+        sequences foreach { n =>
+          n.schema = target.getSchema(task.toCatalog, task.toSchema)
+          if (config.target.engine.storeCase != StoreCase.Mixed) {
+            n.toCase(config.target.engine.storeCase == StoreCase.Lower)
+          }
+          n.attach(config.target.engine)
         }
-        n.attach(config.target.engine)
+        sequenceConverter.add(sequences)
       }
-      sequenceConverter.add(sequences)
     }
     if sequenceConverter.payloadCount > 0 then converters += sequenceConverter
 
@@ -183,6 +184,7 @@ class Reactor(val config: Config) extends Logging {
   }
 
   private def filterViews(cfg: ViewConfig, srcSchema: Schema, targetSchema: Schema): List[(View, Table, Option[String])] = {
+    if (null == cfg) return List.empty
     val views = srcSchema.filterViews(cfg.includes, cfg.excludes)
     val tablePairs = Collections.newMap[String, (View, Table, Option[String])]
 

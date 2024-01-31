@@ -49,7 +49,7 @@ object Report {
       DataSourceUtils.close(ds)
     } else {
       val databaseXml = (xml \ "database" \ "@xml").text
-      database = Serializer.fromXml(Files.readString(new File(dir + Files./ + databaseXml)))
+      database = Serializer.fromXml(Files.readString(Files.forName(dir, databaseXml)))
     }
     val report = new Report(database)
     report.title = (xml \ "@title").text

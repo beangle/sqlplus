@@ -18,6 +18,7 @@
 package org.beangle.db.lint.validator
 
 import org.beangle.commons.io.Files
+import org.beangle.commons.lang.Consoles.ColorText.{green, red}
 import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.data.jdbc.engine.Engines
 import org.beangle.data.jdbc.meta.{Database, Diff, MetadataLoader, Serializer}
@@ -34,15 +35,12 @@ object SchemaValidator {
     val xml = scala.xml.XML.load(new FileInputStream(args(0)))
 
     val dbconf = DataSourceUtils.parseXml((xml \\ "db").head)
-    var basisFile = (xml \\ "basis" \ "@file").text
-    if (!basisFile.contains("/") && !basisFile.contains("\\")) {
-      basisFile = new File(args(0)).getAbsoluteFile.getParentFile.getAbsolutePath + Files./ + basisFile
-    }
-    if (!new File(basisFile).exists()) {
+    val basisFile = Files.forName(args(0),(xml \\ "basis" \ "@file").text)
+    if (!basisFile.exists()) {
       println("Cannot find basis xml file " + basisFile)
       return
     }
-    val basis = Serializer.fromXml(Files.readString(new File(basisFile)))
+    val basis = Serializer.fromXml(Files.readString(basisFile))
 
     val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
     val engine = Engines.forDataSource(ds)
@@ -55,17 +53,9 @@ object SchemaValidator {
     }
     val diff = Diff.diff(database, basis)
     val sqls = Diff.sql(diff)
-    if (sqls.isEmpty) println(ok("OK:") + "database and xml are coincident.")
+    if (sqls.isEmpty) println(green("OK:") + "database and xml are coincident.")
     else
-      println(warn("WARN:") + "database and xml are NOT coincident, and Referential migration sql are listed blow:")
+      println(red("WARN:") + "database and xml are NOT coincident, and Referential migration sql are listed blow:")
       println(sqls.mkString(";\n"))
-  }
-
-  private def ok(msg: String): String = {
-    s"\u001B[32m${msg}\u001B[0m"
-  }
-
-  private def warn(msg: String): String = {
-    s"\u001B[31m${msg}\u001B[0m"
   }
 }

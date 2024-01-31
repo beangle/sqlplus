@@ -3,7 +3,7 @@
   <source>
     <driver>oracle</driver>
     <url>jdbc:oracle:thin:@localhost:1521:orcl</url>
-    <user>eams</user>
+    <user>user</user>
     <password>pwd</password>
   </source>
   <target>

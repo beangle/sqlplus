@@ -1,0 +1,220 @@
+package org.beangle.db.shell
+
+import org.beangle.commons.io.{Files, IOs}
+import org.beangle.commons.lang.Consoles.ColorText.{green, red}
+import org.beangle.commons.lang.{Consoles, JVM, Strings}
+import org.beangle.commons.os.Desktops
+import org.beangle.data.jdbc.ds.{DataSourceUtils, DatasourceConfig, Source}
+import org.beangle.data.jdbc.engine.Engines
+import org.beangle.data.jdbc.meta.*
+import org.beangle.data.jdbc.query.JdbcExecutor
+import org.beangle.db.lint.TempTableFinder
+import org.beangle.db.transport.Config.{TableConfig, ViewConfig}
+import org.beangle.db.transport.{Config, Reactor}
+import org.beangle.template.freemarker.Configurer
+
+import java.io.File
+import java.sql.Connection
+
+object Main {
+
+  var source: Source = _
+
+  def main(args: Array[String]): Unit = {
+    if (args.isEmpty) {
+      return
+    }
+    val configFile = new File(args(args.length - 1))
+    val xml = scala.xml.XML.loadFile(configFile)
+    val dbconf = DataSourceUtils.parseXml((xml \\ "source").head)
+    if (null == dbconf.name) dbconf.name = Engines.forName(dbconf.driver).name.toLowerCase
+    source = Source(dbconf)
+
+    Consoles.shell("db > ", Set("exit", "quit", "q"), {
+      case "help" => printHelp()
+      case "test connection" => testSource(dbconf)
+      case "dump schema" => dumpSchema(source)
+      case "report schema" => reportSchema(source)
+      case "validate schema" => validateSchema(source)
+      case "dump data" => dumpData(source)
+      case "list tmp" => listTmp(source)
+      case "drop tmp" => dropTmp(source)
+      case t => if (Strings.isNotEmpty(t)) println(t + ": command not found...")
+    })
+  }
+
+  def testSource(dbconf: DatasourceConfig): Unit = {
+    val res = DataSourceUtils.test(dbconf)
+    if (res._1) {
+      println(green("Connect successfully."))
+      println(res._2)
+    } else {
+      println(red("Cannot connect to source:"))
+      println(res._2)
+    }
+  }
+
+  def reportSchema(src: Source): Unit = {
+    val dbFile = Files.forName(s"~+/${src.name}.xml")
+    if (!dbFile.exists()) {
+      dumpSchema(src)
+    }
+    if (!dbFile.exists()) {
+      fail("Cannot find database file: " + dbFile.getAbsolutePath)
+      return
+    }
+    var reportxml = Files.forName(s"~+/${src.name}_report.xml")
+    if (!reportxml.exists()) {
+      val configurer = new Configurer
+      configurer.init()
+      val database = Serializer.fromXml(Files.readString(dbFile))
+      val model = Map("database_file" -> dbFile.getAbsolutePath, "database" -> database)
+      reportxml = Files.forName(s"~+/${src.name}_report_default.xml")
+      Files.writeString(reportxml, configurer.render("report.xml.ftl", model))
+    }
+    org.beangle.db.report.Reporter.main(Array(reportxml.getAbsolutePath))
+    val rs = Files.forName(s"~+/index.html")
+    if (rs.exists()) Desktops.openBrowser(rs.getAbsolutePath)
+  }
+
+  def validateSchema(src: Source): Unit = {
+    val basisFile = Files.forName(s"~+/basis.xml")
+    if (!basisFile.exists()) {
+      fail(s"Cannot find ${basisFile.getAbsolutePath}")
+      return
+    }
+    val basis = Serializer.fromXml(Files.readString(basisFile))
+    val engine = src.engine
+    var conn: Connection = null
+    try {
+      conn = src.dataSource.getConnection
+      val database = new Database(engine)
+      val metaloader = MetadataLoader(conn.getMetaData, engine)
+      basis.schemas foreach { s =>
+        val schema = database.getOrCreateSchema(s._1.value)
+        metaloader.loadTables(schema, true)
+      }
+      val diff = Diff.diff(database, basis)
+      val sqls = Diff.sql(diff)
+      if (sqls.isEmpty) println(green("OK:") + "database and xml are coincident.")
+      else
+        println(red("WARN:") + "database and xml are NOT coincident, and Referential migration sql are listed in diff.sql.")
+        Files.writeString(Files.forName("~+/diff.sql"), sqls.mkString(";\n"))
+    } finally {
+      IOs.close(conn)
+    }
+  }
+
+  def dumpSchema(src: Source): Unit = {
+    val engine = src.engine
+    var conn: Connection = null
+    try {
+      conn = src.dataSource.getConnection
+      val database = MetadataLoader.dump(conn.getMetaData, engine, src.catalog, src.schema)
+      val file = Files.forName(s"~+/${src.name}.xml")
+      Files.writeString(file, Serializer.toXml(database))
+      success(s"Dump schema into ${file.getAbsolutePath}.")
+      if !JVM.isHeadless then Desktops.openBrowser(file.getAbsolutePath)
+    } finally {
+      IOs.close(conn)
+    }
+  }
+
+  def dumpData(src: Source): Unit = {
+    val srcEngine = src.engine
+
+    val h2dump = Files.forName("~+/h2")
+    val tarDbconf = new DatasourceConfig("h2")
+    tarDbconf.name = "h2"
+    tarDbconf.user = "sa"
+    tarDbconf.props.put("url", s"jdbc:h2:file:${h2dump.getAbsolutePath}")
+    tarDbconf.props.put("maximumPoolSize", "10")
+    val target = Source(tarDbconf)
+
+    val schemaNames = if src.schema.isEmpty then MetadataLoader.schemas(src.dataSource) else src.schema.map(_.value).toSeq
+    val tasks = schemaNames.map { schema =>
+      val from = source.parse(schema)
+      val to = target.parse(schema)
+      val cfg = new Config.Task(source, target).path(from, to)
+      cfg.table = TableConfig.all
+      cfg.view = ViewConfig.none
+      cfg
+    }
+
+    info(s"start dumping into ${h2dump.getAbsolutePath}")
+    new Reactor(Config(source, target, tasks)).start()
+  }
+
+  def dropTmp(src: Source): Unit = {
+    val tmpPattern = Consoles.prompt("please input the tmp pattern:", "*log,*temp,temp*,*bak,bak*,*back,*old,old*,*tmp,tmp*,*{[0-9]+}")
+    val engine = src.engine
+    var conn: Connection = null
+    try {
+      conn = src.dataSource.getConnection
+      val database = MetadataLoader.dump(conn.getMetaData, engine, src.catalog, src.schema)
+
+      val tmpTables = TempTableFinder.find(database, tmpPattern)
+      if (tmpTables.nonEmpty) {
+        info(s"found ${tmpTables.size} tmp tables:")
+        info(tmpTables.mkString("\n"))
+        if (Consoles.confirm("drop them?[Y/n]")) {
+          val executor = new JdbcExecutor(src.dataSource)
+          tmpTables.foreach { table =>
+            val sql = engine.dropTable(table)
+            info(sql)
+            executor.update(sql)
+          }
+        }
+      } else {
+        info(s"found ${tmpTables.size} tmp tables.")
+      }
+    } finally {
+      IOs.close(conn)
+    }
+  }
+
+  def listTmp(src: Source): Unit = {
+    val tmpPattern = Consoles.prompt("please input the tmp pattern:", "*log,*temp,temp*,*bak,bak*,*back,*old,old*,*tmp,tmp*,*{[0-9]+}")
+    val engine = src.engine
+    var conn: Connection = null
+    try {
+      conn = src.dataSource.getConnection
+      val database = MetadataLoader.dump(conn.getMetaData, engine, src.catalog, src.schema)
+
+      val tmpTables = TempTableFinder.find(database, tmpPattern)
+      if (tmpTables.nonEmpty) {
+        info(s"found ${tmpTables.size} tmp tables:")
+        info(tmpTables.mkString("\n"))
+      } else {
+        info(s"found ${tmpTables.size} tmp tables.")
+      }
+    } finally {
+      IOs.close(conn)
+    }
+  }
+
+  def printHelp(): Unit = {
+    val helpString =
+      """  test connection   try to connect to database
+        |  dump schema       extract database schema definition into database.xml
+        |  report schema     create a html report of database
+        |  validate schema   validate schema against a basis.xml
+        |  dump data         dump data in h2 database
+        |  list tmp          list temporary tables
+        |  drop tmp          drop the temporary tables
+        |  help              print this help content""".stripMargin
+    info(helpString)
+  }
+
+  private def info(msg: String): Unit = {
+    println(msg)
+  }
+
+  private def success(msg: String): Unit = {
+    println(green(msg))
+  }
+
+  private def fail(msg: String): Unit = {
+    println(red(msg))
+  }
+}

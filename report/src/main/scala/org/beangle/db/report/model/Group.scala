@@ -30,7 +30,6 @@ class Group(val name: String, val title: String, val module: Module, groupModule
   override val patterns: Array[AntPathPattern] = TableContainer.buildPatterns(module.schema.name, tableseq)
   var children: List[Group] = List.empty
   var images: List[Image] = List.empty
-  var parent: Option[Group] = None
 
   def addImage(image: Image): Unit = {
     images :+= image
@@ -41,17 +40,15 @@ class Group(val name: String, val title: String, val module: Module, groupModule
   }
 
   def fullName: String = {
-    if (parent.isEmpty) name else (parent.get.fullName + "/") + name
+    name
   }
 
   def path: String = {
-    val path = module.path + "/" + name
-    if (parent.isEmpty) path else (parent.get.fullName + "/") + path
+    module.path + "/" + name
   }
 
   def addGroup(group: Group): Unit = {
     children :+= group
-    group.parent = Some(this)
   }
 
   override def matches(table: Table): Boolean = {
@@ -61,20 +58,10 @@ class Group(val name: String, val title: String, val module: Module, groupModule
         table.module contains prefix
       } else {
         val inmodule = table.module exists (m => m.startsWith(prefix))
-        if (inmodule) {
-          parent match {
-            case Some(pm) => pm.matches(table) && super.matches(table)
-            case None => super.matches(table)
-          }
-        } else {
-          false
-        }
+        inmodule && super.matches(table)
       }
     } else {
-      parent match {
-        case Some(pm) => pm.matches(table) && super.matches(table)
-        case None => super.matches(table)
-      }
+      super.matches(table)
     }
   }
 

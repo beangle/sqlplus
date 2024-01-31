@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<db>
+  <source>
+    <driver>postgresql</driver>
+    <url>jdbc:postgresql://localhost:5432/shangyin</url>
+    <user>postgres</user>
+    <password>postgres</password>
+    <schema>code</schema>
+  </source>
+</db>
