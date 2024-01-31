@@ -2,7 +2,7 @@ package org.beangle.db.shell
 
 import org.beangle.commons.io.{Files, IOs}
 import org.beangle.commons.lang.Consoles.ColorText.{green, red}
-import org.beangle.commons.lang.{Consoles, JVM, Strings}
+import org.beangle.commons.lang.{Consoles, JVM}
 import org.beangle.commons.os.Desktops
 import org.beangle.data.jdbc.ds.{DataSourceUtils, DatasourceConfig, Source}
 import org.beangle.data.jdbc.engine.Engines
@@ -20,30 +20,80 @@ object Main {
 
   var source: Source = _
 
+  var database: Database = _
+
+  val configurer = new Configurer
+
   def main(args: Array[String]): Unit = {
     if (args.isEmpty) {
       return
     }
+    configurer.init()
     val configFile = new File(args(args.length - 1))
     val xml = scala.xml.XML.loadFile(configFile)
     val dbconf = DataSourceUtils.parseXml((xml \\ "source").head)
     if (null == dbconf.name) dbconf.name = Engines.forName(dbconf.driver).name.toLowerCase
     source = Source(dbconf)
 
-    Consoles.shell("db > ", Set("exit", "quit", "q"), {
+    Consoles.shell(s"${source.name}> ", Set("exit", "quit", "q"), {
       case "help" => printHelp()
-      case "test connection" => testSource(dbconf)
+      case "info" => info(dbconf)
       case "dump schema" => dumpSchema(source)
       case "report schema" => reportSchema(source)
       case "validate schema" => validateSchema(source)
       case "dump data" => dumpData(source)
       case "list tmp" => listTmp(source)
       case "drop tmp" => dropTmp(source)
-      case t => if (Strings.isNotEmpty(t)) println(t + ": command not found...")
+      case "list schema" => listSchema(source)
+      case t =>
+        val cmd = if t.endsWith(";") then t.substring(0, t.length - 1).trim else t.trim
+        if (cmd.startsWith("find ")) {
+          findTable(source, cmd.substring("find ".length).trim())
+        } else if (cmd.startsWith("desc ")) {
+          descTable(source, cmd.substring("desc ".length).trim())
+        } else if (cmd.startsWith("select count(*)") || t.startsWith("alter table") || t.startsWith("update ") || t.startsWith("delete ")) {
+          execSql(source, cmd)
+        } else fail(s"unknown: $t, use 'help' to get help")
     })
   }
 
-  def testSource(dbconf: DatasourceConfig): Unit = {
+  def execSql(src: Source, sql: String): Unit = {
+    val jdbcExecutor = new JdbcExecutor(src.dataSource)
+    try {
+      if (sql.trim.toLowerCase.startsWith("select count(*)")) {
+        val rs = jdbcExecutor.query(sql)
+        success("data count:" + rs.map(x => x(0)).mkString(","))
+      } else {
+        jdbcExecutor.update(sql.trim)
+        success(s"executed:${sql}")
+        if (sql.trim.startsWith("alter table")) {
+          database = null
+        }
+      }
+    } catch
+      case e: Exception => fail(e.getMessage)
+  }
+
+  def descTable(src: Source, name: String): Unit = {
+    if database == null then database = dumpDatabase(src)
+    val tables = database.findTables(name)
+    tables.foreach { table =>
+      val model = Map("table" -> table)
+      try {
+        val desc = configurer.render("table.ftl", model)
+        info(desc)
+      } catch
+        case e: Exception => e.printStackTrace()
+    }
+  }
+
+  def findTable(src: Source, name: String): Unit = {
+    if database == null then database = dumpDatabase(src)
+    val tables = database.findTables(name)
+    info(tables.map(_.qualifiedName).mkString("\n"))
+  }
+
+  def info(dbconf: DatasourceConfig): Unit = {
     val res = DataSourceUtils.test(dbconf)
     if (res._1) {
       println(green("Connect successfully."))
@@ -65,8 +115,6 @@ object Main {
     }
     var reportxml = Files.forName(s"~+/${src.name}_report.xml")
     if (!reportxml.exists()) {
-      val configurer = new Configurer
-      configurer.init()
       val database = Serializer.fromXml(Files.readString(dbFile))
       val model = Map("database_file" -> dbFile.getAbsolutePath, "database" -> database)
       reportxml = Files.forName(s"~+/${src.name}_report_default.xml")
@@ -105,19 +153,13 @@ object Main {
     }
   }
 
+
   def dumpSchema(src: Source): Unit = {
-    val engine = src.engine
-    var conn: Connection = null
-    try {
-      conn = src.dataSource.getConnection
-      val database = MetadataLoader.dump(conn.getMetaData, engine, src.catalog, src.schema)
-      val file = Files.forName(s"~+/${src.name}.xml")
-      Files.writeString(file, Serializer.toXml(database))
-      success(s"Dump schema into ${file.getAbsolutePath}.")
-      if !JVM.isHeadless then Desktops.openBrowser(file.getAbsolutePath)
-    } finally {
-      IOs.close(conn)
-    }
+    database = dumpDatabase(src)
+    val file = Files.forName(s"~+/${src.name}.xml")
+    Files.writeString(file, Serializer.toXml(database))
+    success(s"Dump schema into ${file.getAbsolutePath}.")
+    if !JVM.isHeadless then Desktops.openBrowser(file.getAbsolutePath)
   }
 
   def dumpData(src: Source): Unit = {
@@ -148,60 +190,59 @@ object Main {
   def dropTmp(src: Source): Unit = {
     val tmpPattern = Consoles.prompt("please input the tmp pattern:", "*log,*temp,temp*,*bak,bak*,*back,*old,old*,*tmp,tmp*,*{[0-9]+}")
     val engine = src.engine
-    var conn: Connection = null
-    try {
-      conn = src.dataSource.getConnection
-      val database = MetadataLoader.dump(conn.getMetaData, engine, src.catalog, src.schema)
-
-      val tmpTables = TempTableFinder.find(database, tmpPattern)
-      if (tmpTables.nonEmpty) {
-        info(s"found ${tmpTables.size} tmp tables:")
-        info(tmpTables.mkString("\n"))
-        if (Consoles.confirm("drop them?[Y/n]")) {
-          val executor = new JdbcExecutor(src.dataSource)
-          tmpTables.foreach { table =>
-            val sql = engine.dropTable(table)
-            info(sql)
-            executor.update(sql)
-          }
+    if database == null then database = dumpDatabase(src)
+    val tmpTables = TempTableFinder.find(database, tmpPattern)
+    if (tmpTables.nonEmpty) {
+      info(s"found ${tmpTables.size} tmp tables:")
+      info(tmpTables.mkString("\n"))
+      if (Consoles.confirm("drop them?[Y/n]")) {
+        val executor = new JdbcExecutor(src.dataSource)
+        tmpTables.foreach { table =>
+          val sql = engine.dropTable(table)
+          info(sql)
+          executor.update(sql)
         }
-      } else {
-        info(s"found ${tmpTables.size} tmp tables.")
       }
-    } finally {
-      IOs.close(conn)
+      database = null
+    } else {
+      info(s"found 0 tmp tables.")
     }
+  }
+
+  def listSchema(src: Source): Unit = {
+    val srcEngine = src.engine
+    val schemaNames = MetadataLoader.schemas(src.dataSource)
+    info(schemaNames.mkString("\n"))
   }
 
   def listTmp(src: Source): Unit = {
     val tmpPattern = Consoles.prompt("please input the tmp pattern:", "*log,*temp,temp*,*bak,bak*,*back,*old,old*,*tmp,tmp*,*{[0-9]+}")
-    val engine = src.engine
-    var conn: Connection = null
-    try {
-      conn = src.dataSource.getConnection
-      val database = MetadataLoader.dump(conn.getMetaData, engine, src.catalog, src.schema)
-
-      val tmpTables = TempTableFinder.find(database, tmpPattern)
-      if (tmpTables.nonEmpty) {
-        info(s"found ${tmpTables.size} tmp tables:")
-        info(tmpTables.mkString("\n"))
-      } else {
-        info(s"found ${tmpTables.size} tmp tables.")
-      }
-    } finally {
-      IOs.close(conn)
+    if database == null then database = dumpDatabase(src)
+    val tmpTables = TempTableFinder.find(database, tmpPattern)
+    if (tmpTables.nonEmpty) {
+      info(s"found ${tmpTables.size} tmp tables:")
+      info(tmpTables.mkString("\n"))
+    } else {
+      info(s"found ${tmpTables.size} tmp tables.")
     }
   }
 
   def printHelp(): Unit = {
     val helpString =
-      """  test connection   try to connect to database
+      """  info              display database info
         |  dump schema       extract database schema definition into database.xml
         |  report schema     create a html report of database
         |  validate schema   validate schema against a basis.xml
         |  dump data         dump data in h2 database
         |  list tmp          list temporary tables
         |  drop tmp          drop the temporary tables
+        |  list schema       list all schema names
+        |  find pattern      find the tables which match the pattern
+        |  desc table        describe the table
+        |  select count(*)   select count(*) from table where ...
+        |  update ...        update table set ... where ...
+        |  delete ...        delete from table where ...
+        |  alter table ...   alter table ...
         |  help              print this help content""".stripMargin
     info(helpString)
   }
@@ -216,5 +257,16 @@ object Main {
 
   private def fail(msg: String): Unit = {
     println(red(msg))
+  }
+
+  private def dumpDatabase(src: Source): Database = {
+    val engine = src.engine
+    var conn: Connection = null
+    try {
+      conn = src.dataSource.getConnection
+      MetadataLoader.dump(conn.getMetaData, engine, src.catalog, src.schema)
+    } finally {
+      IOs.close(conn)
+    }
   }
 }
