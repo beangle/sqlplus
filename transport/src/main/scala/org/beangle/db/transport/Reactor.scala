@@ -35,7 +35,7 @@ object Reactor extends Logging {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 1) {
-      println("Usage: Reactor /path/to/your/conversion.xml");
+      println("Usage: Reactor /path/to/your/transport.xml")
       return
     }
     val reactor = new Reactor(Config(new File(args(0)).getParent, new FileInputStream(args(0))))

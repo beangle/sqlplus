@@ -26,6 +26,7 @@ import org.beangle.data.jdbc.engine.Engines
 import org.beangle.data.jdbc.meta.*
 import org.beangle.data.jdbc.query.JdbcExecutor
 import org.beangle.db.lint.TempTableFinder
+import org.beangle.db.lint.validator.SchemaValidator
 import org.beangle.db.transport.Config.{TableConfig, ViewConfig}
 import org.beangle.db.transport.{Config, Reactor}
 import org.beangle.template.freemarker.Configurer
@@ -39,12 +40,23 @@ object Main {
 
   var database: Database = _
 
-  val configurer = new Configurer
+  var configurer: Configurer = _
 
   def main(args: Array[String]): Unit = {
-    if (args.isEmpty) {
+    if args.isEmpty then return
+    if (args(0) == "transport") {
+      if (args.length < 2) {
+        println("Usage: Main transport /path/to/your/conversion.xml");
+      } else Reactor.main(Array(args(1)))
+      return
+    } else if (args(0) == "validate") {
+      if (args.length < 2) {
+        println("Usage: Main validate /path/to/your/basis.xml");
+      } else SchemaValidator.main(Array(args(1)))
       return
     }
+
+    configurer = new Configurer
     configurer.init()
     val configFile = new File(args(args.length - 1))
     val xml = scala.xml.XML.loadFile(configFile)
