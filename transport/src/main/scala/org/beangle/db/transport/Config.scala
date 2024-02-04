@@ -20,13 +20,11 @@ package org.beangle.db.transport
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.Files
 import org.beangle.commons.lang.{Numbers, Strings}
-import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils, Source}
-import org.beangle.data.jdbc.engine.{Engine, Engines}
+import org.beangle.data.jdbc.ds.{DataSourceUtils, Source}
 import org.beangle.data.jdbc.meta.Schema.NameFilter
 import org.beangle.data.jdbc.meta.{Identifier, Relation}
 
 import java.io.InputStream
-import javax.sql.DataSource
 import scala.collection.immutable.Seq
 import scala.xml.{Node, NodeSeq}
 
@@ -98,25 +96,25 @@ object Config {
       (ele \\ "tables" \ "@lowercase") foreach { e =>
         if (e.text == "true") tableConfig.lowercase = Some(true)
       }
-      tableConfig.withIndex = "true" == (xml \\ "tables" \ "@index").text
-      tableConfig.withConstraint = "true" == (xml \\ "tables" \ "@constraint").text
-      tableConfig.includes = (xml \\ "tables" \\ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
-      tableConfig.excludes = (xml \\ "tables" \\ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
-      tableConfig.wheres = (xml \\ "tables" \\ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
+      tableConfig.withIndex = "true" == (ele \\ "tables" \ "@index").text
+      tableConfig.withConstraint = "true" == (ele \\ "tables" \ "@constraint").text
+      tableConfig.includes = (ele \\ "tables" \\ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      tableConfig.excludes = (ele \\ "tables" \\ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      tableConfig.wheres = (ele \\ "tables" \\ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
       task.table = tableConfig
 
       val viewConfig = new ViewConfig
       (ele \\ "views" \ "@lowercase") foreach { e =>
         if (e.text == "true") viewConfig.lowercase = Some(true)
       }
-      viewConfig.includes = (xml \\ "views" \\ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
-      viewConfig.excludes = (xml \\ "views" \\ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
-      viewConfig.wheres = (xml \\ "views" \\ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
+      viewConfig.includes = (ele \\ "views" \\ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      viewConfig.excludes = (ele \\ "views" \\ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      viewConfig.wheres = (ele \\ "views" \\ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
       task.view = viewConfig
 
       val seqConfig = new SeqConfig
-      seqConfig.includes = Strings.split((xml \\ "sequences" \\ "includes").text.trim).toSeq
-      seqConfig.excludes = Strings.split((xml \\ "sequences" \\ "excludes").text.trim).toSeq
+      seqConfig.includes = Strings.split((ele \\ "sequences" \\ "includes").text.trim).toSeq
+      seqConfig.excludes = Strings.split((ele \\ "sequences" \\ "excludes").text.trim).toSeq
       task.sequence = seqConfig
       tasks.addOne(task)
     }

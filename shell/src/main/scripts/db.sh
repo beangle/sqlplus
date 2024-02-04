@@ -49,7 +49,7 @@ export slf4j_ver=2.0.10
 export logback_ver=1.4.14
 export commons_compress_ver=1.25.0
 export boot_ver=0.1.8
-export beangle_db_ver=0.0.32
+export beangle_db_ver=0.0.33
 
 download org.scala-lang scala-library $scala_ver
 download org.scala-lang scala-reflect $scala_ver

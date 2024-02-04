@@ -202,7 +202,13 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
   }
 
   override def count(table: Relation, where: Option[String]): Int = {
-    executor.queryForInt(buildQueryString(table, where, true)).get
+    try
+      executor.queryForInt(buildQueryString(table, where, true)).get
+    catch
+      case e: Exception =>
+        logger.error(buildQueryString(table, where, true))
+        e.printStackTrace()
+        0
   }
 
   override def select(r: Relation, where: Option[String]): ResultSetIterator = {
@@ -210,7 +216,7 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
   }
 
   private def buildQueryString(r: Relation, where: Option[String], countOnly: Boolean): String = {
-    val filter = where.map(x => " _tb_ where " + Strings.replace(x, "$tab", "_tb_"))
+    val filter = where.map(x => " t1b where " + Strings.replace(x, "$tab", "t1b"))
     s"select ${if countOnly then "count(*)" else "*"} from " + r.qualifiedName + filter.getOrElse("")
   }
 

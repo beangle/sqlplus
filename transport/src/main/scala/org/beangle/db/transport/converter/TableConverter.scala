@@ -75,23 +75,23 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
 
   def start(): Unit = {
     val watch = new Stopwatch(true)
-    val tables = tablesMap.values.toBuffer.sortBy(_.total).reverse
-    val tableCount = tables.length
+    val flows = tablesMap.values.toBuffer.sortBy(_.total).reverse
+    val tableCount = flows.length
 
     //clean all table foreign keys
-    Workers.work(tables, p => {
+    Workers.work(flows, p => {
       target.cleanForeignKeys(p.target)
     }, threads)
 
     //prepare and recreate table when necessary,don't clean data
-    Workers.work(tables, p => {
+    Workers.work(flows, p => {
       target.clean(p.target)
     }, threads)
 
     logger.info(s"Start $tableCount tables data replication in $threads threads...")
     //按照数量降序进行同步，数据量越大的，越早开始
-    Workers.work(tables, tablePair => {
-      convert(tablePair)
+    Workers.work(flows, flow => {
+      convert(flow)
     }, threads)
     logger.info(s"Finish $tableCount tables data replication,using $watch")
   }

@@ -38,13 +38,13 @@ object Reporter extends Logging {
       return
     }
 
-    val reportxml = new File(args(0))
+    val reportxml = new File(args(0)).getAbsoluteFile
     val target =
       if (args.length > 1 && args(1) != "-debug") args(1)
       else reportxml.getParent
 
     logger.info(s"All wiki and images will be generated in $target")
-    val reporter = new Reporter(Report(args(0)), target)
+    val reporter = new Reporter(Report(reportxml), target)
     reporter.filterTables()
 
     val debug = args.contains("-debug")

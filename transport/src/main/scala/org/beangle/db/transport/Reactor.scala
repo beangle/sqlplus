@@ -38,7 +38,8 @@ object Reactor extends Logging {
       println("Usage: Reactor /path/to/your/transport.xml")
       return
     }
-    val reactor = new Reactor(Config(new File(args(0)).getParent, new FileInputStream(args(0))))
+    val workdir = new File(args(0)).getAbsoluteFile.getParent
+    val reactor = new Reactor(Config(workdir, new FileInputStream(args(0))))
     reactor.start()
     reactor.close()
   }

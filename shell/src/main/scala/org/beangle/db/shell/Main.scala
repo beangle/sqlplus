@@ -76,14 +76,27 @@ object Main {
       case "list schema" => listSchema(source)
       case t =>
         val cmd = if t.endsWith(";") then t.substring(0, t.length - 1).trim else t.trim
-        if (cmd.startsWith("find ")) {
-          findTable(source, cmd.substring("find ".length).trim())
+        if (cmd.startsWith("use ")) {
+          useSchema(source, cmd.substring("use ".length).trim)
+        } else if (cmd.startsWith("find ")) {
+          find(source, cmd.substring("find ".length).trim())
         } else if (cmd.startsWith("desc ")) {
-          descTable(source, cmd.substring("desc ".length).trim())
-        } else if (cmd.startsWith("select count(*)") || t.startsWith("alter table") || t.startsWith("update ") || t.startsWith("delete ")) {
+          desc(source, cmd.substring("desc ".length).trim())
+        } else if (cmd.startsWith("select count(") || t.startsWith("alter table") || t.startsWith("update ") || t.startsWith("delete ") || t.startsWith("create ")) {
           execSql(source, cmd)
         } else fail(s"unknown: $t, use 'help' to get help")
     })
+  }
+
+  def useSchema(src: Source, str: String): Unit = {
+    val schemaNames = MetadataLoader.schemas(src.dataSource)
+    schemaNames.find(x => x.toLowerCase == str.toLowerCase) match {
+      case Some(d) =>
+        this.source = src.copy(schema = Some(src.engine.toIdentifier(d)))
+        this.database = null
+        success(s"switch to schema ${str}")
+      case None => fail(s"Cannot find schema ${str}")
+    }
   }
 
   def execSql(src: Source, sql: String): Unit = {
@@ -103,7 +116,7 @@ object Main {
       case e: Exception => fail(e.getMessage)
   }
 
-  def descTable(src: Source, name: String): Unit = {
+  def desc(src: Source, name: String): Unit = {
     if database == null then database = dumpDatabase(src)
     val tables = database.findTables(name)
     tables.foreach { table =>
@@ -114,12 +127,40 @@ object Main {
       } catch
         case e: Exception => e.printStackTrace()
     }
+
+    val views = database.findViews(name)
+    views.foreach { view =>
+      val model = Map("view" -> view)
+      try {
+        val desc = configurer.render("view.ftl", model)
+        info(desc)
+      } catch
+        case e: Exception => e.printStackTrace()
+    }
   }
 
-  def findTable(src: Source, name: String): Unit = {
+  def find(src: Source, name: String): Unit = {
     if database == null then database = dumpDatabase(src)
-    val tables = database.findTables(name)
-    info(tables.map(_.qualifiedName).mkString("\n"))
+    val pattern = name.trim()
+    var tables: Seq[Table] = Seq.empty
+    var views: Seq[View] = Seq.empty
+
+    if (pattern.startsWith("table ")) {
+      tables = database.findTables(name)
+    } else if (pattern.startsWith("view ")) {
+      views = database.findViews(name)
+    } else {
+      tables = database.findTables(name)
+      views = database.findViews(name)
+    }
+
+    if tables.nonEmpty || views.nonEmpty then
+      if tables.nonEmpty then
+        info(s"found ${tables.size} tables")
+        info(tables.map(_.qualifiedName).mkString("\n"))
+      if views.nonEmpty then
+        info(s"found ${views.size} views")
+        info(views.map(_.qualifiedName).mkString("\n"))
   }
 
   def info(dbconf: DatasourceConfig): Unit = {

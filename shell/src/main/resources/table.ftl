@@ -1,4 +1,4 @@
-${table.qualifiedName?left_pad(30)}
+ table ${table.qualifiedName?left_pad(30)}
 [#assign max_column_span=1/]
 [#list table.columns as column]
   [#if column.name?length gt max_column_span]

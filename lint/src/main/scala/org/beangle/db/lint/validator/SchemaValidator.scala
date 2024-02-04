@@ -34,8 +34,9 @@ object SchemaValidator {
     }
     val xml = scala.xml.XML.load(new FileInputStream(args(0)))
 
+    val workdir = new File(args(0)).getAbsoluteFile.getParent
     val dbconf = DataSourceUtils.parseXml((xml \\ "db").head)
-    val basisFile = Files.forName(args(0),(xml \\ "basis" \ "@file").text)
+    val basisFile = Files.forName(workdir, (xml \\ "basis" \ "@file").text)
     if (!basisFile.exists()) {
       println("Cannot find basis xml file " + basisFile)
       return

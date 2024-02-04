@@ -31,9 +31,9 @@ import java.io.{File, FileInputStream}
 
 object Report {
 
-  def apply(reportXml: String): Report = {
+  def apply(reportXml: File): Report = {
     val xml = scala.xml.XML.load(new FileInputStream(reportXml))
-    val dir = new File(reportXml).getParent
+    val dir = reportXml.getParent
     var database: Database = null
     if ((xml \ "db").nonEmpty) {
       val dbElem = (xml \ "db").head
