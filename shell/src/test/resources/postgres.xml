@@ -5,6 +5,5 @@
     <url>jdbc:postgresql://localhost:5432/shangyin</url>
     <user>postgres</user>
     <password>postgres</password>
-    <schema>code</schema>
   </source>
 </db>

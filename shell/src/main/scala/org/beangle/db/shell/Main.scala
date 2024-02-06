@@ -17,9 +17,10 @@
 
 package org.beangle.db.shell
 
+import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.{Files, IOs}
 import org.beangle.commons.lang.Consoles.ColorText.{green, red}
-import org.beangle.commons.lang.{Consoles, JVM}
+import org.beangle.commons.lang.{Consoles, JVM, Strings}
 import org.beangle.commons.os.Desktops
 import org.beangle.data.jdbc.ds.{DataSourceUtils, DatasourceConfig, Source}
 import org.beangle.data.jdbc.engine.Engines
@@ -36,22 +37,26 @@ import java.sql.Connection
 
 object Main {
 
-  var source: Source = _
+  private var source: Source = _
 
-  var database: Database = _
+  private var database: Database = _
 
-  var configurer: Configurer = _
+  private var configurer: Configurer = _
+
+  private var command = Collections.newBuffer[String]
+
+  private val maxColumnDisplaySize = 20
 
   def main(args: Array[String]): Unit = {
     if args.isEmpty then return
     if (args(0) == "transport") {
       if (args.length < 2) {
-        println("Usage: Main transport /path/to/your/conversion.xml");
+        println("Usage: Main transport /path/to/your/conversion.xml")
       } else Reactor.main(Array(args(1)))
       return
     } else if (args(0) == "validate") {
       if (args.length < 2) {
-        println("Usage: Main validate /path/to/your/basis.xml");
+        println("Usage: Main validate /path/to/your/basis.xml")
       } else SchemaValidator.main(Array(args(1)))
       return
     }
@@ -75,17 +80,30 @@ object Main {
       case "drop tmp" => dropTmp(source)
       case "list schema" => listSchema(source)
       case t =>
-        val cmd = if t.endsWith(";") then t.substring(0, t.length - 1).trim else t.trim
+        val cmd = t.stripLeading
         if (cmd.startsWith("use ")) {
-          useSchema(source, cmd.substring("use ".length).trim)
+          useSchema(source, extractParam("use ", cmd))
         } else if (cmd.startsWith("find ")) {
-          find(source, cmd.substring("find ".length).trim())
+          find(source, extractParam("find ", cmd))
         } else if (cmd.startsWith("desc ")) {
-          desc(source, cmd.substring("desc ".length).trim())
-        } else if (cmd.startsWith("select count(") || t.startsWith("alter table") || t.startsWith("update ") || t.startsWith("delete ") || t.startsWith("create ")) {
-          execSql(source, cmd)
+          desc(source, extractParam("desc ", cmd))
+        } else if (command.nonEmpty || cmd.startsWith("select ") || cmd.startsWith("insert ") ||
+          t.startsWith("alter ") || t.startsWith("update ") || t.startsWith("delete ") ||
+          t.startsWith("create ") || t.startsWith("drop ")) {
+          if cmd.endsWith(";") then
+            command += cmd.substring(0, cmd.length - 1)
+            val sql = command.mkString(" ")
+            command.clear()
+            execSql(source, sql)
+          else
+            command += cmd
         } else fail(s"unknown: $t, use 'help' to get help")
     })
+  }
+
+  private def extractParam(cmdPrefix: String, t: String): String = {
+    val cmd = if t.endsWith(";") then t.substring(0, t.length - 1).trim else t.trim
+    cmd.substring(cmdPrefix.length).trim
   }
 
   def useSchema(src: Source, str: String): Unit = {
@@ -102,18 +120,41 @@ object Main {
   def execSql(src: Source, sql: String): Unit = {
     val jdbcExecutor = new JdbcExecutor(src.dataSource)
     try {
-      if (sql.trim.toLowerCase.startsWith("select count(*)")) {
-        val rs = jdbcExecutor.query(sql)
-        success("data count:" + rs.map(x => x(0)).mkString(","))
-      } else {
-        jdbcExecutor.update(sql.trim)
-        success(s"executed:${sql}")
-        if (sql.trim.startsWith("alter table")) {
-          database = null
+      if (sql.trim.toLowerCase.startsWith("select")) {
+        val rs = jdbcExecutor.iterate(sql)
+        val columnNames = rs.columnNames
+        val displaySizes = rs.columnDisplaySizes
+        for (i <- columnNames.indices) {
+          if columnNames(i).length > displaySizes(i) then displaySizes(i) = columnNames(i).length
+          if (displaySizes(i) > maxColumnDisplaySize) displaySizes(i) = maxColumnDisplaySize
         }
+        var i = 0
+        val max = 10
+        while (rs.hasNext && i < max) {
+          if i == 0 then displayRow(columnNames, displaySizes)
+          displayRow(rs.next(), displaySizes)
+          i += 1
+        }
+        if (rs.hasNext) info("....")
+        rs.close()
+      } else {
+        val rows = jdbcExecutor.update(sql.trim)
+        if sql.startsWith("update") || sql.startsWith("insert") then info(s"update rows:${rows}")
+        if sql.startsWith("alter ") || sql.startsWith("drop ") then database = null
       }
     } catch
       case e: Exception => fail(e.getMessage)
+  }
+
+  def displayRow(value: Array[_], displaySizes: Array[Int], sep: String = "|"): Unit = {
+    val sb = new StringBuilder
+    for (i <- displaySizes.indices) {
+      var str = Strings.rightPad(String.valueOf(value(i)), displaySizes(i), ' ')
+      str = Strings.abbreviate(str, maxColumnDisplaySize)
+      sb.append(str)
+      if (i < displaySizes.length - 1) sb.append(sep)
+    }
+    info(sb.toString)
   }
 
   def desc(src: Source, name: String): Unit = {

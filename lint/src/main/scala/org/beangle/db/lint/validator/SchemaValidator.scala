@@ -19,6 +19,7 @@ package org.beangle.db.lint.validator
 
 import org.beangle.commons.io.Files
 import org.beangle.commons.lang.Consoles.ColorText.{green, red}
+import org.beangle.commons.lang.Strings
 import org.beangle.data.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.data.jdbc.engine.Engines
 import org.beangle.data.jdbc.meta.{Database, Diff, MetadataLoader, Serializer}
@@ -36,7 +37,9 @@ object SchemaValidator {
 
     val workdir = new File(args(0)).getAbsoluteFile.getParent
     val dbconf = DataSourceUtils.parseXml((xml \\ "db").head)
-    val basisFile = Files.forName(workdir, (xml \\ "basis" \ "@file").text)
+    var basisFilePath = (xml \\ "basis" \ "@file").text
+    if (Strings.isBlank(basisFilePath)) basisFilePath = "basis.xml"
+    val basisFile = Files.forName(workdir, basisFilePath)
     if (!basisFile.exists()) {
       println("Cannot find basis xml file " + basisFile)
       return
