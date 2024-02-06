@@ -1,4 +1,4 @@
- view ${view.qualifiedName?left_pad(30)}
+${("view "+view.qualifiedName)?left_pad(40)} ${view.comment!}
 [#assign max_column_span=1/]
 [#list view.columns as column]
   [#if column.name?length gt max_column_span]
