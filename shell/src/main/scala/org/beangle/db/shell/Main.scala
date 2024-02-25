@@ -80,24 +80,27 @@ object Main {
       case "drop tmp" => dropTmp(source)
       case "list schema" => listSchema(source)
       case t =>
-        val cmd = t.stripLeading
-        if (cmd.startsWith("use ")) {
-          useSchema(source, extractParam("use ", cmd))
-        } else if (cmd.startsWith("find ")) {
-          find(source, extractParam("find ", cmd))
-        } else if (cmd.startsWith("desc ")) {
-          desc(source, extractParam("desc ", cmd))
-        } else if (command.nonEmpty || cmd.startsWith("select ") || cmd.startsWith("insert ") ||
-          t.startsWith("alter ") || t.startsWith("update ") || t.startsWith("delete ") ||
-          t.startsWith("create ") || t.startsWith("drop ")) {
-          if cmd.endsWith(";") then
-            command += cmd.substring(0, cmd.length - 1)
-            val sql = command.mkString(" ")
-            command.clear()
-            execSql(source, sql)
-          else
-            command += cmd
-        } else fail(s"unknown: $t, use 'help' to get help")
+        if (Strings.isNotEmpty(t)) {
+          val cmd = t.stripLeading
+          if (cmd.startsWith("use ")) {
+            useSchema(source, extractParam("use ", cmd))
+          } else if (cmd.startsWith("find ")) {
+            find(source, extractParam("find ", cmd))
+          } else if (cmd.startsWith("desc ")) {
+            desc(source, extractParam("desc ", cmd))
+          } else if (command.nonEmpty || cmd.startsWith("select ") || cmd.startsWith("insert ") ||
+            t.startsWith("alter ") || t.startsWith("update ") || t.startsWith("delete ") ||
+            t.startsWith("create ") || t.startsWith("drop ")) {
+            if cmd.endsWith(";") then
+              command += cmd.substring(0, cmd.length - 1)
+              val sql = command.mkString(" ")
+              command.clear()
+              execSql(source, sql)
+            else
+              command += cmd
+          } else
+            fail(s"unknown: $t, use 'help' to get help")
+        }
     })
   }
 
@@ -128,22 +131,38 @@ object Main {
           if columnNames(i).length > displaySizes(i) then displaySizes(i) = columnNames(i).length
           if (displaySizes(i) > maxColumnDisplaySize) displaySizes(i) = maxColumnDisplaySize
         }
-        var i = 0
-        val max = 10
-        while (rs.hasNext && i < max) {
-          if i == 0 then displayRow(columnNames, displaySizes)
-          displayRow(rs.next(), displaySizes)
-          i += 1
+        displayResultTitle(columnNames, displaySizes)
+        if (rs.hasNext) {
+          val max = 10
+          var i = 0
+          while (rs.hasNext && i < max) {
+            displayRow(rs.next(), displaySizes)
+            i += 1
+          }
+          if (rs.hasNext) info("....")
+        } else {
+          info("No data")
         }
-        if (rs.hasNext) info("....")
         rs.close()
       } else {
         val rows = jdbcExecutor.update(sql.trim)
-        if sql.startsWith("update") || sql.startsWith("insert") then info(s"update rows:${rows}")
-        if sql.startsWith("alter ") || sql.startsWith("drop ") then database = null
+        if sql.startsWith("update") || sql.startsWith("insert") || sql.startsWith("delete") then info(s"affect rows:${rows}")
+        else if sql.startsWith("alter ") || sql.startsWith("drop ") || sql.startsWith("create ") then
+          database = null
+          info(s"done.")
       }
     } catch
       case e: Exception => fail(e.getMessage)
+  }
+
+  def displayResultTitle(columnNames: Array[String], displaySizes: Array[Int]): Unit = {
+    displayRow(columnNames, displaySizes)
+    val sb = new StringBuilder
+    for (i <- displaySizes.indices) {
+      sb.append("-" * Math.min(displaySizes(i), maxColumnDisplaySize))
+      if (i < displaySizes.length - 1) sb.append("+")
+    }
+    info(sb.toString())
   }
 
   def displayRow(value: Array[_], displaySizes: Array[Int], sep: String = "|"): Unit = {
@@ -268,7 +287,7 @@ object Main {
     database = dumpDatabase(src)
     val file = Files.forName(s"~+/${src.name}.xml")
     Files.writeString(file, Serializer.toXml(database))
-    success(s"Dump schema into ${file.getAbsolutePath}.")
+    info(s"Dump schema into ${file.getAbsolutePath}.")
     if !JVM.isHeadless then Desktops.openBrowser(file.getAbsolutePath)
   }
 
