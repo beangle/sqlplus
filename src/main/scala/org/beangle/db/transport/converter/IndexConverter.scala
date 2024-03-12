@@ -31,7 +31,7 @@ class IndexConverter(val target: DefaultTableStore, val threads: Int) extends Co
   override def payloadCount: Int = idxMap.size
 
   def add(indxes: Iterable[Index]): Unit = {
-    indxes.foreach(x => idxMap.put(x.literalName, _))
+    indxes.foreach(x => idxMap.put(x.literalName, x))
   }
 
   def reset(): Unit = {

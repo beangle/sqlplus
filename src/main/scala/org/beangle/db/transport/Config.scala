@@ -41,8 +41,8 @@ object Config {
     val config = new Config(source, target, tasks, threads,
       Config.bulkSize(xml), Config.datarange(xml))
 
-    config.beforeActions = actions(workdir, xml \\ "actions" \\ "before" \\ "sql")
-    config.afterActions = actions(workdir, xml \\ "actions" \\ "after" \\ "sql")
+    config.beforeActions = actions(workdir, xml \\ "actions" \ "before" \ "sql")
+    config.afterActions = actions(workdir, xml \\ "actions" \ "after" \ "sql")
     config
   }
 
@@ -93,28 +93,28 @@ object Config {
 
       task.path(from, to)
       val tableConfig = new TableConfig
-      (ele \\ "tables" \ "@lowercase") foreach { e =>
+      (ele \ "tables" \ "@lowercase") foreach { e =>
         if (e.text == "true") tableConfig.lowercase = Some(true)
       }
-      tableConfig.withIndex = "true" == (ele \\ "tables" \ "@index").text
-      tableConfig.withConstraint = "true" == (ele \\ "tables" \ "@constraint").text
-      tableConfig.includes = (ele \\ "tables" \\ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
-      tableConfig.excludes = (ele \\ "tables" \\ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
-      tableConfig.wheres = (ele \\ "tables" \\ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
+      tableConfig.withIndex = "true" == (ele \ "tables" \ "@index").text
+      tableConfig.withConstraint = "true" == (ele \ "tables" \ "@constraint").text
+      tableConfig.includes = (ele \ "tables" \ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      tableConfig.excludes = (ele \ "tables" \ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      tableConfig.wheres = (ele \ "tables" \ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
       task.table = tableConfig
 
       val viewConfig = new ViewConfig
-      (ele \\ "views" \ "@lowercase") foreach { e =>
+      (ele \ "views" \ "@lowercase") foreach { e =>
         if (e.text == "true") viewConfig.lowercase = Some(true)
       }
-      viewConfig.includes = (ele \\ "views" \\ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
-      viewConfig.excludes = (ele \\ "views" \\ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
-      viewConfig.wheres = (ele \\ "views" \\ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
+      viewConfig.includes = (ele \ "views" \ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      viewConfig.excludes = (ele \ "views" \ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      viewConfig.wheres = (ele \ "views" \ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
       task.view = viewConfig
 
       val seqConfig = new SeqConfig
-      seqConfig.includes = Strings.split((ele \\ "sequences" \\ "includes").text.trim).toSeq
-      seqConfig.excludes = Strings.split((ele \\ "sequences" \\ "excludes").text.trim).toSeq
+      seqConfig.includes = Strings.split((ele \ "sequences" \ "includes").text.trim).toSeq
+      seqConfig.excludes = Strings.split((ele \ "sequences" \ "excludes").text.trim).toSeq
       task.sequence = seqConfig
       tasks.addOne(task)
     }

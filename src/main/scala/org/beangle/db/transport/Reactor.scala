@@ -169,6 +169,10 @@ class Reactor(val config: Config) extends Logging {
   }
 
   private def filterTables(cfg: TableConfig, srcSchema: Schema, targetSchema: Schema): List[(Table, Table, Option[String])] = {
+    val filter = new NameFilter()
+    for (include <- cfg.includes) filter.include(include)
+    for (exclude <- cfg.excludes) filter.exclude(exclude)
+
     val tables = srcSchema.filterTables(cfg.includes, cfg.excludes)
     val tablePairs = Collections.newMap[String, (Table, Table, Option[String])]
 

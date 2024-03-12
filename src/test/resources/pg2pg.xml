@@ -2,21 +2,21 @@
 <transport maxthreads="10" >
   <source>
     <driver>postgresql</driver>
-    <url>jdbc:postgresql://localhost:5432/platform</url>
+    <url>jdbc:postgresql://localhost:5432/shangyin_platform</url>
     <user>postgres</user>
     <password>postgres</password>
   </source>
   <target>
     <driver>postgresql</driver>
-    <url>jdbc:postgresql://localhost:5432/platform</url>
+    <url>jdbc:postgresql://localhost:5432/shangyin_platform</url>
     <user>postgres</user>
     <password>postgres</password>
   </target>
 
   <task from="ems" to="ems1">
     <tables lowercase="true" index="true" constraint="true" >
-      <includes></includes>
-      <excludes>*</excludes>
+      <includes>usr_user</includes>
+      <excludes></excludes>
     </tables>
     <views>
       <includes>*</includes>
