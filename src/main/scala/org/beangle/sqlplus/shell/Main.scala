@@ -90,7 +90,7 @@ object Main {
             desc(source, extractParam("desc ", cmd))
           } else if (command.nonEmpty || cmd.startsWith("select ") || cmd.startsWith("insert ") ||
             t.startsWith("alter ") || t.startsWith("update ") || t.startsWith("delete ") ||
-            t.startsWith("create ") || t.startsWith("drop ")) {
+            t.startsWith("create ") || t.startsWith("drop ") || t.startsWith("grant ")) {
             if cmd.endsWith(";") then
               command += cmd.substring(0, cmd.length - 1)
               val sql = command.mkString(" ")
