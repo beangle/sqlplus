@@ -30,7 +30,7 @@ import org.beangle.sqlplus.lint.TempTableFinder
 import org.beangle.sqlplus.lint.validator.SchemaValidator
 import org.beangle.sqlplus.transport.Config.{TableConfig, ViewConfig}
 import org.beangle.sqlplus.transport.{Config, Reactor}
-import org.beangle.template.freemarker.Configurer
+import org.beangle.template.freemarker.Configurator
 
 import java.io.File
 import java.sql.Connection
@@ -41,7 +41,7 @@ object Main {
 
   private var database: Database = _
 
-  private var configurer: Configurer = _
+  private var configurator: Configurator = _
 
   private var command = Collections.newBuffer[String]
 
@@ -61,8 +61,8 @@ object Main {
       return
     }
 
-    configurer = new Configurer
-    configurer.init()
+    configurator = new Configurator
+    configurator.init()
     val configFile = new File(args(args.length - 1))
     val xml = scala.xml.XML.loadFile(configFile)
     val dbconf = DataSourceUtils.parseXml((xml \\ "source").head)
@@ -182,7 +182,7 @@ object Main {
     tables.foreach { table =>
       val model = Map("table" -> table)
       try {
-        val desc = configurer.render("table.ftl", model)
+        val desc = configurator.render("table.ftl", model)
         info(desc)
       } catch
         case e: Exception => e.printStackTrace()
@@ -192,7 +192,7 @@ object Main {
     views.foreach { view =>
       val model = Map("view" -> view)
       try {
-        val desc = configurer.render("view.ftl", model)
+        val desc = configurator.render("view.ftl", model)
         info(desc)
       } catch
         case e: Exception => e.printStackTrace()
@@ -248,7 +248,7 @@ object Main {
       val database = Serializer.fromXml(Files.readString(dbFile))
       val model = Map("database_file" -> dbFile.getAbsolutePath, "database" -> database)
       reportxml = Files.forName(s"~+/${src.name}_report_default.xml")
-      Files.writeString(reportxml, configurer.render("report.xml.ftl", model))
+      Files.writeString(reportxml, configurator.render("report.xml.ftl", model))
     }
     org.beangle.sqlplus.report.Reporter.main(Array(reportxml.getAbsolutePath))
     val rs = Files.forName(s"~+/index.html")
@@ -267,7 +267,7 @@ object Main {
     try {
       conn = src.dataSource.getConnection
       val database = new Database(engine)
-      val metaloader = MetadataLoader(conn.getMetaData, engine)
+      val metaloader = MetadataLoader(conn, engine)
       basis.schemas foreach { s =>
         val schema = database.getOrCreateSchema(s._1.value)
         metaloader.loadTables(schema, true)

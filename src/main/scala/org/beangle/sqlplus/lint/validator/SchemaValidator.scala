@@ -50,7 +50,7 @@ object SchemaValidator {
     val engine = Engines.forDataSource(ds)
 
     val database = new Database(engine)
-    val metaloader = MetadataLoader(ds.getConnection.getMetaData, engine)
+    val metaloader = MetadataLoader(ds.getConnection, engine)
     basis.schemas foreach { s =>
       val schema = database.getOrCreateSchema(s._1.value)
       metaloader.loadTables(schema, true)
