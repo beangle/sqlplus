@@ -13,10 +13,13 @@
     :root{
       font-size:14px;
     }
+    body{
+      font-family:"Times New Roman",Simsun;
+    }
     .h1,.h2,.h3,.h4,.h5,.h6,h1,h2,h3,h4,h5,h6 {
       font-family:inherit;
       font-weight:500;
-      line-height:1.1;
+      line-height:1;
       color:inherit
     }
     .h1, .h2, .h3, h1, h2, h3 {
@@ -58,7 +61,14 @@
       margin-top: 0;
       margin-bottom: 0.5rem;
     }
+    .index_td{
+      text-align:center;
+    }
     @media print{
+      body{
+        line-height:1;
+        font-family:"Times New Roman",Simsun;
+      }
       :root{
         font-size:12px;
       }
@@ -66,6 +76,20 @@
         margin:0px;
         width:100%;
         max-width: 20000px;
+      }
+      thead {
+        display: table-header-group;
+      }
+      img{
+        max-width:180mm;
+      }
+      .card{
+        margin-bottom:0px;
+        border:0px;
+      }
+      .h4, .h5, .h6, h4, h5, h6 {
+        margin-top: 5px;
+        margin-bottom: 5px;
       }
     }
   </style>

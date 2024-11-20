@@ -32,27 +32,27 @@
     [/#list]
     </ul>
 
-    <h3>2. 数据库对象列表</h3>
+    <h3 style="page-break-before:always">2. 数据库对象列表</h3>
 
     <h4 id="table_list">2.1 表格列表</h4>
 
     [#include "include/tables.ftl"/]
 
     [#if allSequences?size >0 ]
-    <h4 id="sequence_list">2.2 序列一览</h4>
+    <h4 id="sequence_list"  style="page-break-before:always">2.2 序列一览</h4>
 
     [#include "include/sequences.ftl"/]
     [/#if]
 
    [#if allImages?size>0]
-    <h4 id="image_list">[#if allSequences?size >0 ]2.3[#else]2.2[/#if] 模块关系图</h4>
+    <h4 id="image_list" style="page-break-before:always">[#if allSequences?size >0 ]2.3[#else]2.2[/#if] 模块关系图</h4>
     [#list allImages as img]
 
     <h4>${img_index+1}. ${img.title}</h4>
     <ul>
       <li>关系图</li>
     </ul>
-    <p><img src="${report.imageurl}${img.name}.png" alt="${img.title}" /></p>
+    <p style="text-align:center"><img src="${report.imageurl}${img.name}.png" alt="${img.title}" /></p>
     [#if img.description?? && img.description?length>0]
     <ul>
       <li>说明</li>
@@ -62,7 +62,7 @@
     [/#list]
    [/#if]
 
-    <h3>3. 具体模块明细</h3>
+    <h3 style="page-break-before:always">3. 具体模块明细</h3>
 
     [#list report.allGroups as m]
     [@grouptables "3."+(m_index+1),m;prefix,group/]

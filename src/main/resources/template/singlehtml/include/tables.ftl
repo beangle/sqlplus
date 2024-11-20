@@ -6,12 +6,14 @@
 ${schema.title}中的${module.title}-${group.title}下共计${tables?size}个表(${schema.name}.)，分别如下:
 
 <table class="table table-bordered table-striped table-condensed">
-  <tr>
-    <th class="info_header" width="7%">序号</th>
-    <th class="info_header" width="43%">表名/描述</th>
-    <th class="info_header" width="7%">序号</th>
-    <th class="info_header" width="43%">表名/描述</th>
-  </tr>
+  <thead>
+    <tr>
+      <th class="info_header index_td" width="7%">序号</th>
+      <th class="info_header" width="43%">表名/描述</th>
+      <th class="info_header index_td" width="7%">序号</th>
+      <th class="info_header" width="43%">表名/描述</th>
+    </tr>
+  </thead>
   [#if tables?size>0]
   [#assign tabcnt = (tables?size/2)?int]
   [#if tables?size%2>0][#assign tabcnt = tabcnt+1][/#if]
@@ -19,11 +21,11 @@ ${schema.title}中的${module.title}-${group.title}下共计${tables?size}个表
   [#list 1..tabcnt as i]
   <tr>
     [#assign table= sortedTables[i-1] /]
-    <td>${i}</td>
+    <td class="index_td">${i}</td>
     <td><a href="#table_${table.qualifiedName?lower_case}">${table.name.value?lower_case}</a>&nbsp;${table.comment!}</td>
     [#if tables[i-1+tabcnt]??]
     [#assign table= sortedTables[i-1+tabcnt] /]
-    <td>${i+tabcnt}</td>
+    <td class="index_td">${i+tabcnt}</td>
     <td><a href="#table_${table.qualifiedName?lower_case}">${table.name.value?lower_case}</a>&nbsp;${table.comment!}</td>
     [#else]
     <td></td>
