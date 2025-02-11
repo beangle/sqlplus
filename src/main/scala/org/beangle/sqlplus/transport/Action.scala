@@ -79,7 +79,10 @@ class SqlAction(val dataSource: DataSource, sqls: Seq[String], passthrough: Bool
     } catch {
       case e: Exception =>
         if (!passthrough) throw e
-        else 0
+        else {
+          logger.error(s"execute ${sql} failed", e)
+          0
+        }
     }
   }
 }

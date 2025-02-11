@@ -54,6 +54,7 @@ class Reactor(val config: Config) extends Logging {
 
     val source = new DefaultTableStore(config.source.dataSource, config.source.engine)
     val target = new DefaultTableStore(config.target.dataSource, config.target.engine)
+    val ds = config.target.dataSource
     val allFilter = new NameFilter()
     allFilter.include("*")
     config.tasks foreach { task =>

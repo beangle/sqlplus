@@ -27,6 +27,11 @@ import org.beangle.sqlplus.transport.{Converter, Dataflow, TableStore}
 object TableConverter {
   val zero = '\u0000'
 
+  /** remove zero char in string
+   *
+   * @param b
+   * @return
+   */
   def sanitize(b: Any): Any = {
     b match {
       case s: String =>
@@ -54,7 +59,11 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
 
   override def payloadCount: Int = tablesMap.size
 
-  var enableSanitize = false
+  var enableSanitize = checkEncoding()
+
+  private def checkEncoding(): Boolean = {
+    target.encoding == "utf8" && target.encoding != source.encoding
+  }
 
   def add(pairs: Iterable[Dataflow]): Unit = {
     pairs.foreach { t =>
@@ -106,7 +115,7 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
         logger.info(s"Insert $targetTable(0)")
       } else {
         val dataIter = source.select(pair.src, pair.where)
-        val data = Collections.newBuffer[Array[Any]]
+        var data = Collections.newBuffer[Array[Any]]
         var finished = 0
         var batchIndex = 0
         try {
@@ -116,7 +125,7 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
             if (finished % bulkSize == 0) {
               insert(targetTable, data, finished, pair.total, batchIndex)
               batchIndex += 1
-              data.clear()
+              data = Collections.newBuffer[Array[Any]]
             }
           }
           if (data.nonEmpty) {
@@ -134,18 +143,17 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
   }
 
   def insert(targetTable: Table, data: collection.Seq[Array[Any]], finished: Int, total: Int, batchIndex: Int): Unit = {
+    val sw = new Stopwatch(true)
     if (enableSanitize) {
       data foreach { d =>
-        d.indices foreach { i =>
-          d(i) = TableConverter.sanitize(d(i))
-        }
+        d.indices foreach { i => d(i) = TableConverter.sanitize(d(i)) }
       }
     }
     target.save(targetTable, data)
     if (batchIndex == 0 && finished >= total) {
-      logger.info(s"Insert $targetTable($finished)")
+      logger.info(s"Insert $targetTable($finished) in ${sw}")
     } else {
-      logger.info(s"Insert $targetTable($finished/$total)")
+      logger.info(s"Insert $targetTable($finished/$total) in ${sw}")
     }
   }
 }

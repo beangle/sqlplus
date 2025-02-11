@@ -30,7 +30,7 @@ import org.beangle.sqlplus.transport.TableStore
 import java.sql.Connection
 import javax.sql.DataSource
 
-class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends TableStore with Logging {
+class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends TableStore, Logging {
   val executor = new JdbcExecutor(dataSource)
   val database = new Database(engine)
   private val loadedSchemas = Collections.newSet[String]
@@ -44,10 +44,12 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
       if (!loadedSchemas.contains(schemaLiteralName)) {
         logger.info(s"loading ${schemaName.value} metas ...")
         conn = dataSource.getConnection
-        val loader = new MetadataLoader(conn.getMetaData, engine)
+        val loader = MetadataLoader(conn, engine)
+        loader.loadBasics(database)
         loader.loadTables(schema, tableFilter, true)
         loader.loadViews(schema, viewFilter)
         loader.loadSequences(schema)
+        logger.info(s"find ${schema.tables.size} tables,${schema.views.size} views,${schema.sequences.size} sequences.")
         loadedSchemas.addOne(schemaLiteralName)
       }
     } finally {
@@ -59,7 +61,7 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
     var conn: Connection = null
     try {
       conn = dataSource.getConnection
-      val loader = new MetadataLoader(conn.getMetaData, engine)
+      val loader = MetadataLoader(conn, engine)
       val schemas = loader.schemas()
       if (!schemas.map(_.toLowerCase).contains(schemaName.value.toLowerCase)) {
         val createSchemaSql = engine.createSchema(schemaName.value)
@@ -223,7 +225,8 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
   override def save(table: Table, datas: collection.Seq[Array[_]]): Int = {
     val types = for (column <- table.columns) yield column.sqlType.code
     val insertSql = engine.insert(table)
-    executor.batch(insertSql, datas, types.toSeq).length
+    executor.batchInsert(insertSql, datas, types.toSeq)
+    datas.length
   }
 
   private def getSchema(table: Table): Schema = {
@@ -240,4 +243,8 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
   }
 
   override def close(): Unit = {}
+
+  def encoding: String = {
+    if (null == database.encoding) "unknown" else database.encoding.toLowerCase
+  }
 }

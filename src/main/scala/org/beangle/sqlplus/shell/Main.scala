@@ -61,9 +61,15 @@ object Main {
       return
     }
 
+    val lastArg = args(args.length - 1)
+    val configFile = if lastArg.endsWith(".xml") then lastArg else lastArg + ".xml"
+    if (!new File(configFile).exists()) {
+      println(s"Error:Cannot find ${configFile}")
+      return
+    }
+
     configurator = new Configurator
     configurator.init()
-    val configFile = new File(args(args.length - 1))
     val xml = scala.xml.XML.loadFile(configFile)
     val dbconf = DataSourceUtils.parseXml((xml \\ "source").head)
     if (null == dbconf.name) dbconf.name = Engines.forName(dbconf.driver).name.toLowerCase

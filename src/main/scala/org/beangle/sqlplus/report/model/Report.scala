@@ -42,8 +42,8 @@ object Report {
       val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
       val schema = new Schema(database, database.engine.toIdentifier((dbElem \ "@schema").text))
 
-      val meta = ds.getConnection().getMetaData
-      val loader = new MetadataLoader(meta, Engines.forDataSource(ds))
+      val conn = ds.getConnection()
+      val loader = MetadataLoader(conn, Engines.forDataSource(ds))
       loader.loadTables(schema, extras = true)
       loader.loadSequences(schema)
       DataSourceUtils.close(ds)

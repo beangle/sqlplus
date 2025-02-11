@@ -52,4 +52,5 @@ trait TableStore {
 
   def engine: Engine
 
+  def encoding: String
 }

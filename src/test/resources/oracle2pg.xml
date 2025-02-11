@@ -1,19 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<transport maxthreads="2">
+<transport maxthreads="10">
   <source>
     <driver>oracle</driver>
-    <url>jdbc:oracle:thin:@localhost:1521:orcl</url>
-    <user>user</user>
-    <password>pwd</password>
+    <url>jdbc:oracle:thin:@172.17.3.20:1521:orcl</url>
+    <user>test</user>
+    <password>test</password>
   </source>
   <target>
     <driver>postgresql</driver>
-    <url>jdbc:postgresql://localhost:5432/ecupl</url>
+    <url>jdbc:postgresql://localhost:5432/orcl</url>
     <user>postgres</user>
     <password>postgres</password>
+    <maximumPoolSize>30</maximumPoolSize>
   </target>
 
-  <task from="edu" to="edu">
+  <task from="zsfx_cjyy_new" to="tmp">
     <tables lowercase="true" index="true">
       <includes>*</includes>
       <excludes>tmp*,*bak,*{[0-9]+},*old</excludes>
