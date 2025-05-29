@@ -3,7 +3,7 @@ import org.beangle.parent.Settings.*
 import sbt.Keys.*
 
 ThisBuild / organization := "org.beangle.sqlplus"
-ThisBuild / version := "0.0.43-SNAPSHOT"
+ThisBuild / version := "0.0.43"
 
 ThisBuild / scmInfo := Some(
   ScmInfo(
@@ -24,9 +24,9 @@ ThisBuild / developers := List(
 ThisBuild / description := "The Beangle DB Utility"
 ThisBuild / homepage := Some(url("https://beangle.github.io/sqlplus/index.html"))
 
-val beangle_commons = "org.beangle.commons" % "beangle-commons" % "5.6.26"
-val beangle_template = "org.beangle.template" % "beangle-template" % "0.1.23"
-val beangle_jdbc = "org.beangle.jdbc" % "beangle-jdbc" % "1.0.9"
+val beangle_commons = "org.beangle.commons" % "beangle-commons" % "5.6.28"
+val beangle_template = "org.beangle.template" % "beangle-template" % "0.1.26"
+val beangle_jdbc = "org.beangle.jdbc" % "beangle-jdbc" % "1.0.11"
 
 val commonDeps = Seq(beangle_commons, beangle_jdbc, beangle_template, logback_classic, logback_core,
   scalatest, HikariCP, plantuml, freemarker,
