@@ -58,7 +58,7 @@ class SqlAction(val dataSource: DataSource, sqls: Seq[String], passthrough: Bool
     sqls foreach { s =>
       if (s.startsWith("--")) {
         var comment = Strings.substringBefore(s, "\n")
-        comment = Strings.replace(comment, "--", "")
+        comment = Strings.replace(comment, "--", "").trim()
         var statement = Strings.substringAfter(s, "\n").trim()
         statement = Strings.replace(statement, "\n", " ")
         val sw = new Stopwatch(true)
