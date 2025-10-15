@@ -98,6 +98,7 @@ object Config {
       }
       tableConfig.withIndex = "true" == (ele \ "tables" \ "@index").text
       tableConfig.withConstraint = "true" == (ele \ "tables" \ "@constraint").text
+      tableConfig.useUnloggedTable = "true" == (ele \ "tables" \ "@unlogged").text
       tableConfig.includes = (ele \ "tables" \ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
       tableConfig.excludes = (ele \ "tables" \ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
       tableConfig.wheres = (ele \ "tables" \ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
@@ -194,6 +195,7 @@ object Config {
   final class TableConfig extends DataflowConfig {
     var withIndex: Boolean = true
     var withConstraint: Boolean = true
+    var useUnloggedTable: Boolean = false
   }
 
   final class ViewConfig extends DataflowConfig {

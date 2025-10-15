@@ -43,7 +43,7 @@ object Main {
 
   private var configurator: Configurator = _
 
-  private var command = Collections.newBuffer[String]
+  private var buf = Collections.newBuffer[String]
 
   private val maxColumnDisplaySize = 20
 
@@ -94,20 +94,26 @@ object Main {
             find(source, extractParam("find ", cmd))
           } else if (cmd.startsWith("desc ")) {
             desc(source, extractParam("desc ", cmd))
-          } else if (command.nonEmpty || cmd.startsWith("select ") || cmd.startsWith("insert ") ||
-            t.startsWith("alter ") || t.startsWith("update ") || t.startsWith("delete ") ||
-            t.startsWith("create ") || t.startsWith("drop ") || t.startsWith("grant ")) {
-            if cmd.endsWith(";") then
-              command += cmd.substring(0, cmd.length - 1)
-              val sql = command.mkString(" ")
-              command.clear()
+          } else if (buf.nonEmpty || isSqlStart(cmd)) {
+            // for statement or precedure
+            if cmd.endsWith(";") || cmd.endsWith("/") then
+              buf += cmd.substring(0, cmd.length - 1)
+              val sql = buf.mkString(" ")
+              buf.clear()
               execSql(source, sql)
             else
-              command += cmd
+              buf += cmd
           } else
             fail(s"unknown: $t, use 'help' to get help")
         }
     })
+  }
+
+  private def isSqlStart(sql: String): Boolean = {
+    val cmd = sql.toLowerCase
+    cmd.startsWith("select ") || cmd.startsWith("insert ") ||
+      cmd.startsWith("alter ") || cmd.startsWith("update ") || cmd.startsWith("delete ") ||
+      cmd.startsWith("create ") || cmd.startsWith("drop ") || cmd.startsWith("grant ")
   }
 
   private def extractParam(cmdPrefix: String, t: String): String = {
