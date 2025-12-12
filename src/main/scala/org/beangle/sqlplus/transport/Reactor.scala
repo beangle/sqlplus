@@ -24,7 +24,7 @@ import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.ds.{DataSourceUtils, Source}
 import org.beangle.jdbc.engine.StoreCase
 import org.beangle.jdbc.meta.Schema.NameFilter
-import org.beangle.jdbc.meta.{Schema, Table, TableType, View}
+import org.beangle.jdbc.meta.*
 import org.beangle.sqlplus.transport.Config.*
 import org.beangle.sqlplus.transport.converter.*
 
@@ -180,8 +180,12 @@ class Reactor(val config: Config) extends Logging {
     for (src <- tables) {
       val tar = src.clone()
       tar.updateSchema(targetSchema)
-      cfg.lowercase foreach { lowercase =>
-        if (lowercase) tar.toCase(true)
+      cfg.toCase foreach {
+        case "lower" => tar.toCase(true)
+        case "upper" => tar.toCase(false)
+      }
+      cfg.prefix foreach { p =>
+        tar.name = Identifier(p + tar.name.value, tar.name.quoted)
       }
       if (cfg.useUnloggedTable) {
         tar.tableType = TableType.Unlogged
@@ -200,8 +204,9 @@ class Reactor(val config: Config) extends Logging {
     for (src <- views) {
       val tar = src.toTable
       tar.updateSchema(targetSchema)
-      cfg.lowercase foreach { lowercase =>
-        if (lowercase) tar.toCase(true)
+      cfg.toCase foreach {
+        case "lower" => tar.toCase(true)
+        case "upper" => tar.toCase(false)
       }
       tar.attach(targetSchema.database.engine)
       tablePairs.put(tar.name.toString, (src, tar, cfg.getWhere(src)))

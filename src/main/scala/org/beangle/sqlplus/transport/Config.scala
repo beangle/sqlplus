@@ -52,24 +52,24 @@ object Config {
   }
 
   private def maxtheads(xml: scala.xml.Elem): Int = {
-    val mt = (xml \ "@maxthreads").text.trim
+    val mt = (xml \ "@max-threads").text.trim
     val maxthreads = Numbers.toInt(mt, 5)
     if (maxthreads > 0) maxthreads else 5
   }
 
-  private def datarange(xml: scala.xml.Elem): Tuple2[Int, Int] = {
-    val mt = (xml \ "@datarange").text.trim
+  private def datarange(xml: scala.xml.Elem): (Int, Int) = {
+    val mt = (xml \ "@data-range").text.trim
     if (Strings.isEmpty(mt)) {
-      Tuple2(0, Int.MaxValue)
+      (0, Int.MaxValue)
     } else {
       val min = Strings.trim(Strings.substringBefore(mt, "-"))
       val max = Strings.trim(Strings.substringAfter(mt, "-"))
-      Tuple2(Integer.parseInt(min), if (max == "*") Int.MaxValue else Integer.parseInt(max))
+      (Integer.parseInt(min), if (max == "*") Int.MaxValue else Integer.parseInt(max))
     }
   }
 
   private def bulkSize(xml: scala.xml.Elem): Int = {
-    val bs = (xml \ "@bulksize").text.trim
+    val bs = (xml \ "@bulk-size").text.trim
     Numbers.toInt(bs, defaultBulkSize)
   }
 
@@ -93,8 +93,8 @@ object Config {
 
       task.path(from, to)
       val tableConfig = new TableConfig
-      (ele \ "tables" \ "@lowercase") foreach { e =>
-        if (e.text == "true") tableConfig.lowercase = Some(true)
+      (ele \ "tables" \ "@to-case") foreach { e =>
+        tableConfig.changeCase(Some(e.text.trim))
       }
       tableConfig.withIndex = "true" == (ele \ "tables" \ "@index").text
       tableConfig.withConstraint = "true" == (ele \ "tables" \ "@constraint").text
@@ -102,11 +102,13 @@ object Config {
       tableConfig.includes = (ele \ "tables" \ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
       tableConfig.excludes = (ele \ "tables" \ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
       tableConfig.wheres = (ele \ "tables" \ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
+      val prefix = (ele \ "tables" \ "@add-prefix").text.trim()
+      if (!prefix.isBlank) tableConfig.prefix = Some(prefix)
       task.table = tableConfig
 
       val viewConfig = new ViewConfig
-      (ele \ "views" \ "@lowercase") foreach { e =>
-        if (e.text == "true") viewConfig.lowercase = Some(true)
+      (ele \ "views" \ "@to-case") foreach { e =>
+        viewConfig.changeCase(Some(e.text.trim))
       }
       viewConfig.includes = (ele \ "views" \ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
       viewConfig.excludes = (ele \ "views" \ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
@@ -149,7 +151,7 @@ object Config {
   abstract class DataflowConfig {
     var includes: Seq[String] = List.empty
     var excludes: Seq[String] = List.empty
-    var lowercase: Option[Boolean] = None
+    var toCase: Option[String] = None
     var wheres: Map[String, String] = Map.empty
 
     def buildNameFilter(): NameFilter = {
@@ -161,6 +163,15 @@ object Config {
 
     def getWhere(r: Relation): Option[String] = {
       wheres.get(r.name.value.toLowerCase)
+    }
+
+    def changeCase(c: Option[String]): Unit = {
+      c match {
+        case None => toCase = None
+        case Some(ca) =>
+          if (ca == "upper" || ca == "lower") toCase = c
+          else throw new IllegalArgumentException(s"Case only accept upper/lower,${ca} is not suitable.")
+      }
     }
   }
 
@@ -196,6 +207,7 @@ object Config {
     var withIndex: Boolean = true
     var withConstraint: Boolean = true
     var useUnloggedTable: Boolean = false
+    var prefix: Option[String] = None
   }
 
   final class ViewConfig extends DataflowConfig {
