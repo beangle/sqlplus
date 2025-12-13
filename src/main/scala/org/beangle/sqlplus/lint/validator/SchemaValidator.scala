@@ -23,6 +23,7 @@ import org.beangle.commons.lang.Strings
 import org.beangle.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.jdbc.engine.Engines
 import org.beangle.jdbc.meta.{Database, Diff, MetadataLoader, Serializer}
+import org.beangle.sqlplus.util.EncryptDataSourceUtils
 
 import java.io.{File, FileInputStream}
 
@@ -36,7 +37,7 @@ object SchemaValidator {
     val xml = scala.xml.XML.load(new FileInputStream(args(0)))
 
     val workdir = new File(args(0)).getAbsoluteFile.getParent
-    val dbconf = DataSourceUtils.parseXml((xml \\ "db").head)
+    val dbconf = EncryptDataSourceUtils.parseXml((xml \\ "db").head)
     var basisFilePath = (xml \\ "basis" \ "@file").text
     if (Strings.isBlank(basisFilePath)) basisFilePath = "basis.xml"
     val basisFile = Files.forName(workdir, basisFilePath)

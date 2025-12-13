@@ -43,13 +43,13 @@ download(){
 
 export scala_ver=2.13.16
 export scala3_ver=3.3.7
-export beangle_commons_ver=5.6.32
-export beangle_template_ver=0.1.28
+export beangle_commons_ver=5.6.33
+export beangle_template_ver=0.2.1
 export slf4j_ver=2.0.17
 export logback_ver=1.5.20
 export commons_compress_ver=1.28.0
-export boot_ver=0.1.19
-export beangle_sqlplus_ver=0.0.46
+export boot_ver=0.1.21
+export beangle_sqlplus_ver=0.0.47-SNAPSHOT
 
 download org.scala-lang scala-library $scala_ver
 download org.scala-lang scala-reflect $scala_ver
@@ -66,7 +66,7 @@ jarfile="$M2_REPO/org/beangle/sqlplus/beangle-sqlplus/$beangle_sqlplus_ver/beang
 
 if [[ -f $jarfile ]];then
   args="$@"
-  java -cp "${bootpath:1}" org.beangle.boot.dependency.AppResolver $jarfile --remote=$M2_REMOTE_REPO --local=$M2_REPO
+  java -cp "${bootpath:1}" org.beangle.boot.dependency.AppResolver $jarfile --remote=$M2_REMOTE_REPO --local=$M2_REPO > /dev/null 2>&1
   info=`java -cp "${bootpath:1}" org.beangle.boot.launcher.Classpath $jarfile $M2_REPO`
   if [ $? = 0 ]; then
     mainclass="${info%@*}"

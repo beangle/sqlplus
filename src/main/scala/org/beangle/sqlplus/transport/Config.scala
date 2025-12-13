@@ -20,9 +20,10 @@ package org.beangle.sqlplus.transport
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.Files
 import org.beangle.commons.lang.{Numbers, Strings}
-import org.beangle.jdbc.ds.{DataSourceUtils, Source}
+import org.beangle.jdbc.ds.Source
 import org.beangle.jdbc.meta.Schema.NameFilter
 import org.beangle.jdbc.meta.{Identifier, Relation}
+import org.beangle.sqlplus.util.EncryptDataSourceUtils
 
 import java.io.InputStream
 import scala.collection.immutable.Seq
@@ -125,7 +126,7 @@ object Config {
   }
 
   private def db(xml: scala.xml.Elem, target: String, threads: Int): Source = {
-    val dbconf = DataSourceUtils.parseXml((xml \\ target).head)
+    val dbconf = EncryptDataSourceUtils.parseXml((xml \\ target).head)
     val maximumPoolSize = dbconf.props.getOrElse("maximumPoolSize", "1").toInt
     if (maximumPoolSize <= threads) {
       dbconf.props.put("maximumPoolSize", (threads + 1).toString)
@@ -139,7 +140,9 @@ object Config {
       if (contents.isEmpty) {
         var filePath = (x \ "@file").text
         if (Strings.isNotBlank(filePath)) {
-          filePath = Files.forName(workdir, filePath).getAbsolutePath
+          if (!filePath.startsWith("/")) {
+            filePath = Files.forName(workdir, filePath).getAbsolutePath
+          }
           Some(ActionConfig("script", contents, Map("file" -> filePath)))
         } else None
       } else {

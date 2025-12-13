@@ -26,6 +26,7 @@ import org.beangle.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.jdbc.engine.Engines
 import org.beangle.jdbc.meta.*
 import org.beangle.sqlplus.report.model.Schema as ReportSchema
+import org.beangle.sqlplus.util.EncryptDataSourceUtils
 
 import java.io.{File, FileInputStream}
 
@@ -37,7 +38,7 @@ object Report {
     var database: Database = null
     if ((xml \ "db").nonEmpty) {
       val dbElem = (xml \ "db").head
-      val dbconf = DataSourceUtils.parseXml(dbElem)
+      val dbconf = EncryptDataSourceUtils.parseXml(dbElem)
       database = new Database(Engines.forName(dbconf.driver))
       val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
       val schema = new Schema(database, database.engine.toIdentifier((dbElem \ "@schema").text))

@@ -30,6 +30,7 @@ import org.beangle.sqlplus.lint.TempTableFinder
 import org.beangle.sqlplus.lint.validator.SchemaValidator
 import org.beangle.sqlplus.transport.Config.{TableConfig, ViewConfig}
 import org.beangle.sqlplus.transport.{Config, Reactor}
+import org.beangle.sqlplus.util.EncryptDataSourceUtils
 import org.beangle.template.freemarker.Configurator
 
 import java.io.File
@@ -43,7 +44,7 @@ object Main {
 
   private var configurator: Configurator = _
 
-  private var buf = Collections.newBuffer[String]
+  private val buf = Collections.newBuffer[String]
 
   private val maxColumnDisplaySize = 20
 
@@ -71,7 +72,7 @@ object Main {
     configurator = new Configurator
     configurator.init()
     val xml = scala.xml.XML.loadFile(configFile)
-    val dbconf = DataSourceUtils.parseXml((xml \\ "source").head)
+    val dbconf = EncryptDataSourceUtils.parseXml((xml \\ "source").head)
     if (null == dbconf.name) dbconf.name = Engines.forName(dbconf.driver).name.toLowerCase
     source = Source(dbconf)
 

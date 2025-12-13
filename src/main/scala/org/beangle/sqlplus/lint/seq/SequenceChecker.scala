@@ -17,17 +17,19 @@
 
 package org.beangle.sqlplus.lint.seq
 
-import java.io.FileInputStream
-
-import javax.sql.DataSource
 import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.ds.DataSourceUtils
 import org.beangle.sqlplus.lint.seq.impl.{DefaultSequenceNamePattern, OracleTableSequenceDao}
+import org.beangle.sqlplus.util.EncryptDataSourceUtils
+
+import java.io.FileInputStream
+import javax.sql.DataSource
 
 object SequenceChecker extends Logging {
 
   /**
    * SequenceChecker /path/to/dbconfig.xml info|update|remove
+   *
    * @param args
    */
   def main(args: Array[String]): Unit = {
@@ -92,7 +94,7 @@ object SequenceChecker extends Logging {
   }
 
   private def getDataSource(xml: scala.xml.Node): DataSource = {
-    val dbconf = DataSourceUtils.parseXml(xml)
+    val dbconf = EncryptDataSourceUtils.parseXml(xml)
     DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
   }
 }

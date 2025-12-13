@@ -1,4 +1,4 @@
-import org.beangle.parent.Dependencies.{mysql_connector_java, *}
+import org.beangle.parent.Dependencies.*
 import org.beangle.parent.Settings.*
 import sbt.Keys.*
 
