@@ -17,13 +17,15 @@
 
 package org.beangle.sqlplus.transport
 
-import org.beangle.sqlplus.util.{PBEEncryptor, PBEPropertyProcessor, PropertyProcessor}
+import org.beangle.commons.codec.binary.PBEEncryptor
+import org.beangle.sqlplus.util.EncryptDataSourceUtils
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.must.Matchers
 
 class EncryptTest extends AnyFunSpec, Matchers {
   val encryptKey = "beangle"
   val password = "bZoTxh)foA"
+
   describe("PBE") {
 
     it("encrypt and decrypt") {
@@ -33,11 +35,11 @@ class EncryptTest extends AnyFunSpec, Matchers {
     }
 
     it("PBEDecode process") {
-      System.setProperty("jasypt.encryptor.password", encryptKey)
-      val decoder = PropertyProcessor.env()
-      val decryptedPwd = decoder.decrypt("ENC(Rr/iQsiRlgm/QWpa17YYVZmEPbU0RoZ6F0f4OU3u5DM=)")
+      System.setProperty("beangle.encryptor.password", encryptKey)
+      val decoder = EncryptDataSourceUtils.encryptor.get
+      val decryptedPwd = decoder.process(null, "ENC(Rr/iQsiRlgm/QWpa17YYVZmEPbU0RoZ6F0f4OU3u5DM=)")
       assert(password == decryptedPwd)
-      assert("+some_test" == decoder.decrypt("+some_test"))
+      assert("+some_test" == decoder.process(null, "+some_test"))
     }
 
     it("generate salt and iv") {

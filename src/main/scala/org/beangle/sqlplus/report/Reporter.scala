@@ -19,7 +19,8 @@ package org.beangle.sqlplus.report
 
 import freemarker.cache.{ClassTemplateLoader, FileTemplateLoader, MultiTemplateLoader}
 import freemarker.template.Configuration
-import net.sourceforge.plantuml.{OptionFlags, Run}
+import net.sourceforge.plantuml.Run
+import net.sourceforge.plantuml.cli.Exit
 import org.beangle.commons.io.Files.{/, stringWriter}
 import org.beangle.commons.lang.Strings.isEmpty
 import org.beangle.commons.logging.Logging
@@ -164,7 +165,8 @@ class Reporter(val report: Report, val dir: String) extends Logging {
           freemarkerTemplate.process(data, fw)
           fw.close()
         }
-        OptionFlags.getInstance().setSystemExit(false)
+        //disable plantuml exit when error ocurred.
+        System.setProperty(Exit.DISABLE_PROPERTY, "true")
         Run.main(Array(imageBase, "-charset", "UTF-8"))
         if (!report.reserveImageUmlScript) {
           s.images foreach { image =>

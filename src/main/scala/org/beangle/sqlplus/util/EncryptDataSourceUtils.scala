@@ -17,6 +17,7 @@
 
 package org.beangle.sqlplus.util
 
+import org.beangle.commons.cdi.PropertySource
 import org.beangle.jdbc.ds.{DataSourceUtils, DatasourceConfig}
 
 object EncryptDataSourceUtils {
@@ -24,17 +25,22 @@ object EncryptDataSourceUtils {
   def parseXml(xml: scala.xml.Node): DatasourceConfig = {
     val cfg = DataSourceUtils.parseXml(xml)
 
-    val processor = PropertyProcessor.env()
-    if (processor.changed) {
-      cfg.user = processor.decrypt(cfg.user)
-      cfg.password = processor.decrypt(cfg.password)
+    encryptor foreach { e =>
+      cfg.user = e.process("user", cfg.user)
+      cfg.password = e.process("password", cfg.password)
       cfg.props = cfg.props.map { case (k, v) =>
-        (k, processor.decrypt(v))
+        (k, e.process(null, v))
       }
-      cfg
-    } else {
-      cfg
     }
+    cfg
+  }
 
+  def encryptor: Option[PropertySource.Processor] = {
+    val key = "beangle.encryptor.password"
+    var pwd = System.getProperty(key)
+    if (null == pwd) {
+      pwd = System.getenv("BEANGLE_ENCRYPTOR_PASSWORD")
+    }
+    if (null == pwd) None else Some(PropertySource.pbe(pwd))
   }
 }
