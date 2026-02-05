@@ -20,8 +20,8 @@ package org.beangle.sqlplus.transport.converter
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
-import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.meta.{Constraint, PrimaryKey, Table}
+import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.transport.{Converter, Dataflow, TableStore}
 
 object TableConverter {
@@ -53,7 +53,7 @@ object TableConverter {
 }
 
 class TableConverter(val source: TableStore, val target: TableStore, val threads: Int,
-                     val bulkSize: Int) extends Converter with Logging {
+                     val bulkSize: Int) extends Converter {
 
   private val tablesMap = Collections.newMap[String, Dataflow]
 
@@ -97,12 +97,12 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
       target.clean(p.target)
     }, threads)
 
-    logger.info(s"Start $tableCount tables data replication in $threads threads...")
+    SqlplusLogger.info(s"Start $tableCount tables data replication in $threads threads...")
     //按照数量降序进行同步，数据量越大的，越早开始
     Workers.work(flows, flow => {
       convert(flow)
     }, threads)
-    logger.info(s"Finish $tableCount tables data replication,using $watch")
+    SqlplusLogger.info(s"Finish $tableCount tables data replication,using $watch")
   }
 
   def convert(pair: Dataflow): Unit = {
@@ -112,7 +112,7 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
 
       if (pair.total == 0) {
         target.save(targetTable, List.empty)
-        logger.info(s"Insert $targetTable(0)")
+        SqlplusLogger.info(s"Insert $targetTable(0)")
       } else {
         val dataIter = source.select(pair.src, pair.where)
         var data = Collections.newBuffer[Array[Any]]
@@ -132,13 +132,13 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
             insert(targetTable, data, finished, pair.total, batchIndex)
           }
         } catch {
-          case e: Exception => logger.error(s"Insert error ${targetTable.qualifiedName}", e)
+          case e: Exception => SqlplusLogger.error(s"Insert error ${targetTable.qualifiedName}", e)
         } finally {
           dataIter.close()
         }
       }
     } catch {
-      case e: Exception => logger.error(s"Insert error ${targetTable.qualifiedName}", e)
+      case e: Exception => SqlplusLogger.error(s"Insert error ${targetTable.qualifiedName}", e)
     }
   }
 
@@ -151,9 +151,9 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
     }
     target.save(targetTable, data)
     if (batchIndex == 0 && finished >= total) {
-      logger.info(s"Insert $targetTable($finished) in ${sw}")
+      SqlplusLogger.info(s"Insert $targetTable($finished) in ${sw}")
     } else {
-      logger.info(s"Insert $targetTable($finished/$total) in ${sw}")
+      SqlplusLogger.info(s"Insert $targetTable($finished/$total) in ${sw}")
     }
   }
 }

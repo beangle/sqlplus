@@ -20,11 +20,11 @@ package org.beangle.sqlplus.transport.converter
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
-import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.meta.PrimaryKey
+import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.transport.Converter
 
-class PrimaryKeyConverter(val target: DefaultTableStore, threads: Int) extends Converter with Logging {
+class PrimaryKeyConverter(val target: DefaultTableStore, threads: Int) extends Converter {
 
   private val primaryKeyMap = Collections.newMap[String, PrimaryKey]
 
@@ -33,23 +33,24 @@ class PrimaryKeyConverter(val target: DefaultTableStore, threads: Int) extends C
   }
 
   override def payloadCount: Int = primaryKeyMap.size
+
   def reset(): Unit = {
   }
 
   def start(): Unit = {
     val watch = new Stopwatch(true)
     val pks = primaryKeyMap.values
-    logger.info(s"Start ${pks.size} primary keys replication in $threads threads...")
+    SqlplusLogger.info(s"Start ${pks.size} primary keys replication in $threads threads...")
     Workers.work(pks, pk => {
       val sql = target.engine.alterTable(pk.table).addPrimaryKey(pk)
       try {
         target.executor.update(sql)
-        logger.info(s"Apply ${pk.name}(${pk.table.qualifiedName})")
+        SqlplusLogger.info(s"Apply ${pk.name}(${pk.table.qualifiedName})")
       } catch {
-        case e: Exception => logger.warn(s"Cannot execute $sql")
+        case e: Exception => SqlplusLogger.warn(s"Cannot execute $sql")
       }
     }, threads)
-    logger.info(s"Finish ${pks.size} primary keys replication,using $watch")
+    SqlplusLogger.info(s"Finish ${pks.size} primary keys replication,using $watch")
   }
 
 }

@@ -17,7 +17,7 @@
 
 package org.beangle.sqlplus.lint.seq
 
-import org.beangle.commons.logging.Logging
+import org.beangle.commons.xml.{Document, Node}
 import org.beangle.jdbc.ds.DataSourceUtils
 import org.beangle.sqlplus.lint.seq.impl.{DefaultSequenceNamePattern, OracleTableSequenceDao}
 import org.beangle.sqlplus.util.EncryptDataSourceUtils
@@ -25,7 +25,7 @@ import org.beangle.sqlplus.util.EncryptDataSourceUtils
 import java.io.FileInputStream
 import javax.sql.DataSource
 
-object SequenceChecker extends Logging {
+object SequenceChecker {
 
   /**
    * SequenceChecker /path/to/dbconfig.xml info|update|remove
@@ -37,7 +37,7 @@ object SequenceChecker extends Logging {
       println("Usage: SequenceChecker /path/to/your/xml info|update|remove")
       return
     }
-    val xml = scala.xml.XML.load(new FileInputStream(args(0)))
+    val xml = Document.parse(new FileInputStream(args(0)))
     val dataSource = getDataSource(xml)
     val action = if (args.length > 1) args(1) else "info"
     val update = (action == "update")
@@ -93,7 +93,7 @@ object SequenceChecker extends Logging {
       ps.println(seq)
   }
 
-  private def getDataSource(xml: scala.xml.Node): DataSource = {
+  private def getDataSource(xml: Node): DataSource = {
     val dbconf = EncryptDataSourceUtils.parseXml(xml)
     DataSourceUtils.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
   }

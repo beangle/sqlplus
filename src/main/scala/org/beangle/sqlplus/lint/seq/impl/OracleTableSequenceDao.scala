@@ -17,12 +17,13 @@
 
 package org.beangle.sqlplus.lint.seq.impl
 
-import javax.sql.DataSource
-import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.query.JdbcExecutor
+import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.lint.seq.{SequenceNamePattern, TableSequence, TableSequenceDao}
 
-class OracleTableSequenceDao extends TableSequenceDao with Logging {
+import javax.sql.DataSource
+
+class OracleTableSequenceDao extends TableSequenceDao {
 
   private var jdbcExecutor: JdbcExecutor = _
 
@@ -50,7 +51,7 @@ class OracleTableSequenceDao extends TableSequenceDao with Logging {
           try {
             tableLMaxId = jdbcExecutor.queryForLong("select max(id) from  " + tableName).get
           } catch {
-            case e: Exception => logger.warn(s"cannot find table $tableName")
+            case e: Exception => SqlplusLogger.warn(s"cannot find table $tableName")
           }
           if (seqLast_number < tableLMaxId) {
             val seq = new TableSequence()

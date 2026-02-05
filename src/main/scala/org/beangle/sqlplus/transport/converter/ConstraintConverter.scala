@@ -20,11 +20,11 @@ package org.beangle.sqlplus.transport.converter
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
-import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.meta.{Constraint, ForeignKey}
+import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.transport.Converter
 
-class ConstraintConverter(val target: DefaultTableStore, val threads: Int) extends Converter with Logging {
+class ConstraintConverter(val target: DefaultTableStore, val threads: Int) extends Converter {
 
   private val constraintMap = Collections.newMap[String, Constraint]
 
@@ -42,18 +42,18 @@ class ConstraintConverter(val target: DefaultTableStore, val threads: Int) exten
     val constraints = constraintMap.values
     val cnt = constraints.size
     val watch = new Stopwatch(true)
-    logger.info(s"Start $cnt constraints replication in $threads threads...")
+    SqlplusLogger.info(s"Start $cnt constraints replication in $threads threads...")
     Workers.work(constraints, {
       case fk: ForeignKey =>
         val sql = target.engine.alterTable(fk.table).addForeignKey(fk)
         try {
           target.executor.update(sql)
-          logger.info(s"Apply constraint ${fk.name}")
+          SqlplusLogger.info(s"Apply constraint ${fk.name}")
         } catch {
-          case e: Exception => logger.warn(s"Cannot execute $sql")
+          case e: Exception => SqlplusLogger.warn(s"Cannot execute $sql")
         }
       case _ =>
     }, threads)
-    logger.info(s"Finish $cnt constraints replication,using $watch")
+    SqlplusLogger.info(s"Finish $cnt constraints replication,using $watch")
   }
 }

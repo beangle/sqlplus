@@ -20,6 +20,7 @@ package org.beangle.sqlplus.lint.validator
 import org.beangle.commons.io.Files
 import org.beangle.commons.lang.Consoles.ColorText.{green, red}
 import org.beangle.commons.lang.Strings
+import org.beangle.commons.xml.Document
 import org.beangle.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.jdbc.engine.Engines
 import org.beangle.jdbc.meta.{Database, Diff, MetadataLoader, Serializer}
@@ -34,7 +35,7 @@ object SchemaValidator {
       println("Usage: Reactor /path/to/your/validator.xml");
       return
     }
-    val xml = scala.xml.XML.load(new FileInputStream(args(0)))
+    val xml = Document.parse(new FileInputStream(args(0)))
 
     val workdir = new File(args(0)).getAbsoluteFile.getParent
     val dbconf = EncryptDataSourceUtils.parseXml((xml \\ "db").head)

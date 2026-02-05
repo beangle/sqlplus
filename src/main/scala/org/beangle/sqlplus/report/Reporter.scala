@@ -23,19 +23,19 @@ import net.sourceforge.plantuml.Run
 import net.sourceforge.plantuml.cli.Exit
 import org.beangle.commons.io.Files.{/, stringWriter}
 import org.beangle.commons.lang.Strings.isEmpty
-import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.meta.Table
+import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.report.model.{Group, Module, Report}
 import org.beangle.template.freemarker.BeangleObjectWrapper
 
 import java.io.File
 import java.util.Locale
 
-object Reporter extends Logging {
+object Reporter {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 1) {
-      logger.info("Usage: Reporter /path/to/your/report.xml [target] -debug")
+      SqlplusLogger.info("Usage: Reporter /path/to/your/report.xml [target] -debug")
       return
     }
 
@@ -44,13 +44,13 @@ object Reporter extends Logging {
       if (args.length > 1 && args(1) != "-debug") args(1)
       else reportxml.getParent
 
-    logger.info(s"All wiki and images will be generated in $target")
+    SqlplusLogger.info(s"All wiki and images will be generated in $target")
     val reporter = new Reporter(Report(reportxml), target)
     reporter.filterTables()
 
     val debug = args.contains("-debug")
     if (debug) {
-      logger.info("Debug Mode:Type gen to generate report again,or q or exit to quit!")
+      SqlplusLogger.info("Debug Mode:Type gen to generate report again,or q or exit to quit!")
       var command = "gen"
       while {
         if (command == "gen") gen(reporter)
@@ -67,19 +67,19 @@ object Reporter extends Logging {
     try {
       reporter.genWiki()
       reporter.genImages()
-      logger.info("report generate complete.")
+      SqlplusLogger.info("report generate complete.")
     } catch {
       case e: Exception => e.printStackTrace()
     }
   }
 }
 
-class Reporter(val report: Report, val dir: String) extends Logging {
+class Reporter(val report: Report, val dir: String) {
   val cfg = new Configuration(Configuration.VERSION_2_3_24)
   cfg.setEncoding(Locale.getDefault, "UTF-8")
   val overrideDir = new File(dir + ".." + / + "template")
   if (overrideDir.exists) {
-    logger.info(s"Load override template from ${overrideDir.getAbsolutePath}")
+    SqlplusLogger.info(s"Load override template from ${overrideDir.getAbsolutePath}")
     cfg.setTemplateLoader(new MultiTemplateLoader(Array(new FileTemplateLoader(overrideDir), new ClassTemplateLoader(getClass, "/template"))))
   } else
     cfg.setTemplateLoader(new ClassTemplateLoader(getClass, "/template"))
@@ -116,7 +116,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
       render(data, "index", dir)
     } else {
       for (rs <- report.schemas; s <- rs.modules) {
-        logger.info(s"rendering module ${s.id}")
+        SqlplusLogger.info(s"rendering module ${s.id}")
         val schema = report.database.getSchema(rs.name).get
         val data = new collection.mutable.HashMap[String, Any]
         data += ("engine" -> report.database.engine)
@@ -142,7 +142,7 @@ class Reporter(val report: Report, val dir: String) extends Logging {
   def renderGroup(rs: Module, group: Group, template: String, data: collection.mutable.HashMap[String, Any]): Unit = {
     data.put("group", group)
     if (group.tables.nonEmpty) {
-      logger.info(s"rendering $group")
+      SqlplusLogger.info(s"rendering $group")
       render(data, template, moduleBaseDir(rs), group.fullName)
     }
     for (g <- group.children) renderGroup(rs, g, template, data)

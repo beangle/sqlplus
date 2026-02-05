@@ -21,10 +21,11 @@ import org.beangle.commons.bean.Initializing
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.Files
 import org.beangle.commons.lang.Strings
-import org.beangle.commons.logging.Logging
+import org.beangle.commons.xml.{Document, Node}
 import org.beangle.jdbc.ds.{DataSourceFactory, DataSourceUtils}
 import org.beangle.jdbc.engine.Engines
 import org.beangle.jdbc.meta.*
+import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.report.model.Schema as ReportSchema
 import org.beangle.sqlplus.util.EncryptDataSourceUtils
 
@@ -33,7 +34,7 @@ import java.io.{File, FileInputStream}
 object Report {
 
   def apply(reportXml: File): Report = {
-    val xml = scala.xml.XML.load(new FileInputStream(reportXml))
+    val xml = Document.parse(reportXml)
     val dir = reportXml.getParent
     var database: Database = null
     if ((xml \ "db").nonEmpty) {
@@ -85,7 +86,7 @@ object Report {
     report
   }
 
-  def parseGroup(node: scala.xml.Node, report: Report, module: Module, groupModuleName: Option[String], parent: Option[Group]): Unit = {
+  def parseGroup(node: Node, report: Report, module: Module, groupModuleName: Option[String], parent: Option[Group]): Unit = {
     val name = (node \ "@name").text
     var tables = (node \ "@tables").text
     var mp = groupModuleName
@@ -111,7 +112,7 @@ object Report {
   }
 }
 
-class Report(val database: Database) extends Initializing with Logging {
+class Report(val database: Database) extends Initializing {
 
   var title: String = _
 
@@ -166,10 +167,10 @@ class Report(val database: Database) extends Initializing with Logging {
 
   def refTableUrl(tableRef: TableRef): String = {
     database.getTable(tableRef) match {
-      case None => logger.warn("Cannot find group of [" + tableRef.qualifiedName + "]"); "error"
+      case None => SqlplusLogger.warn("Cannot find group of [" + tableRef.qualifiedName + "]"); "error"
       case Some(t) =>
         table2Group.get(t) match {
-          case None => logger.warn("Cannot find group of [" + tableRef.qualifiedName + "]"); ""
+          case None => SqlplusLogger.warn("Cannot find group of [" + tableRef.qualifiedName + "]"); ""
           case Some(g) => contextPath + g.path + s".html#表格-${tableRef.name.value}-${t.comment.getOrElse("")}"
         }
     }
@@ -177,7 +178,7 @@ class Report(val database: Database) extends Initializing with Logging {
 
   def tableUrl(table: Table): String = {
     table2Group.get(table) match {
-      case None => logger.warn("Cannot find group of [" + table.qualifiedName + "]"); "error"
+      case None => SqlplusLogger.warn("Cannot find group of [" + table.qualifiedName + "]"); "error"
       case Some(g) => contextPath + g.path + s".html#表格-${table.name.value}-${table.comment.getOrElse("")}"
     }
   }

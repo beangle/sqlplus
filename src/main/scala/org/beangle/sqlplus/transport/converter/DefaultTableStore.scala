@@ -20,17 +20,17 @@ package org.beangle.sqlplus.transport.converter
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.IOs
 import org.beangle.commons.lang.Strings
-import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.engine.Engine
 import org.beangle.jdbc.meta.*
 import org.beangle.jdbc.meta.Schema.NameFilter
 import org.beangle.jdbc.query.{JdbcExecutor, ResultSetIterator}
+import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.transport.TableStore
 
 import java.sql.Connection
 import javax.sql.DataSource
 
-class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends TableStore, Logging {
+class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends TableStore {
   val executor = new JdbcExecutor(dataSource)
   val database = new Database(engine)
   private val loadedSchemas = Collections.newSet[String]
@@ -42,14 +42,14 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
       val schemaLiteralName = schema.name.toLiteral(engine)
 
       if (!loadedSchemas.contains(schemaLiteralName)) {
-        logger.info(s"loading ${schemaName.value} metas ...")
+        SqlplusLogger.info(s"loading ${schemaName.value} metas ...")
         conn = dataSource.getConnection
         val loader = MetadataLoader(conn, engine)
         loader.loadBasics(database)
         loader.loadTables(schema, tableFilter, true)
         loader.loadViews(schema, viewFilter)
         loader.loadSequences(schema)
-        logger.info(s"find ${schema.tables.size} tables,${schema.views.size} views,${schema.sequences.size} sequences.")
+        SqlplusLogger.info(s"find ${schema.tables.size} tables,${schema.views.size} views,${schema.sequences.size} sequences.")
         loadedSchemas.addOne(schemaLiteralName)
       }
     } finally {
@@ -104,7 +104,7 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
         } catch {
           case e: Throwable => //may be cascade drop by other table.
         }
-        logger.debug(s"Drop foreign key ${fk.literalName} on ${table.qualifiedName}.")
+        SqlplusLogger.debug(s"Drop foreign key ${fk.literalName} on ${table.qualifiedName}.")
       }
     }
   }
@@ -114,11 +114,11 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
       getSchema(table).getTable(table.name.value) foreach { t =>
         t.primaryKey foreach { pk =>
           executor.update(engine.alterTable(t).dropPrimaryKey(pk))
-          logger.debug(s"Drop primary key ${table.qualifiedName}.${pk.literalName}")
+          SqlplusLogger.debug(s"Drop primary key ${table.qualifiedName}.${pk.literalName}")
         }
         t.uniqueKeys foreach { uk =>
           executor.update(engine.alterTable(table).dropConstraint(uk.literalName))
-          logger.debug(s"Drop unique key ${uk.literalName} on ${table.qualifiedName}.")
+          SqlplusLogger.debug(s"Drop unique key ${uk.literalName} on ${table.qualifiedName}.")
         }
         t.indexes foreach { i =>
           try {
@@ -126,12 +126,12 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
           } catch {
             case e: Throwable => //may be cascade drop by other foreign keys.
           }
-          logger.debug(s"Drop index ${i.literalName} on ${table.qualifiedName}.")
+          SqlplusLogger.debug(s"Drop index ${i.literalName} on ${table.qualifiedName}.")
         }
       }
-      logger.debug(s"Clean table ${table.qualifiedName}'s keys and constraints")
+      SqlplusLogger.debug(s"Clean table ${table.qualifiedName}'s keys and constraints")
     catch
-      case e: Exception => logger.error(s"Clean table ${table.name} 's keys failed", e)
+      case e: Exception => SqlplusLogger.error(s"Clean table ${table.name} 's keys failed", e)
   }
 
   override def truncate(table: Table): Boolean = {
@@ -142,7 +142,7 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
       true
     catch
       case e: Exception =>
-        logger.error(s"Truncate table ${table.name} failed", e)
+        SqlplusLogger.error(s"Truncate table ${table.name} failed", e)
         false
   }
 
@@ -152,12 +152,12 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
       schema.getTable(table.name.value) foreach { t =>
         schema.tables.remove(t.name)
         executor.update(engine.dropTable(t.qualifiedName))
-        logger.info(s"Drop table ${table.name}")
+        SqlplusLogger.info(s"Drop table ${table.name}")
       }
       true
     catch
       case e: Exception =>
-        logger.error(s"Drop table ${table.name} failed", e)
+        SqlplusLogger.error(s"Drop table ${table.name} failed", e)
         false
   }
 
@@ -165,10 +165,10 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
     if (getSchema(table).getTable(table.name.value).isEmpty) {
       try
         executor.update(engine.createTable(table))
-        logger.info(s"Create table ${table.name}")
+        SqlplusLogger.info(s"Create table ${table.name}")
       catch
         case e: Exception =>
-          logger.error(s"Cannot create table ${table.name}", e)
+          SqlplusLogger.error(s"Cannot create table ${table.name}", e)
           return false
     }
     true
@@ -184,7 +184,7 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
         if (null != dropSql) executor.update(dropSql)
       } catch {
         case e: Exception =>
-          logger.error(s"Drop sequence ${sequence.name} failed", e)
+          SqlplusLogger.error(s"Drop sequence ${sequence.name} failed", e)
           return false
       }
     }
@@ -198,7 +198,7 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
       true
     } catch {
       case e: Exception =>
-        logger.error(s"cannot create sequence ${sequence.name}", e)
+        SqlplusLogger.error(s"cannot create sequence ${sequence.name}", e)
         false
     }
   }
@@ -208,7 +208,7 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
       executor.queryForInt(buildQueryString(table, where, true)).get
     catch
       case e: Exception =>
-        logger.error(buildQueryString(table, where, true))
+        SqlplusLogger.error(buildQueryString(table, where, true))
         e.printStackTrace()
         0
   }

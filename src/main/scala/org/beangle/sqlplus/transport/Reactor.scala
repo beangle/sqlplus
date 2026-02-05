@@ -20,18 +20,18 @@ package org.beangle.sqlplus.transport
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
-import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.ds.{DataSourceUtils, Source}
 import org.beangle.jdbc.engine.StoreCase
-import org.beangle.jdbc.meta.Schema.NameFilter
 import org.beangle.jdbc.meta.*
+import org.beangle.jdbc.meta.Schema.NameFilter
+import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.transport.Config.*
 import org.beangle.sqlplus.transport.converter.*
 
 import java.io.{File, FileInputStream}
 import java.util.concurrent.LinkedBlockingQueue
 
-object Reactor extends Logging {
+object Reactor {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 1) {
@@ -45,7 +45,7 @@ object Reactor extends Logging {
   }
 }
 
-class Reactor(val config: Config) extends Logging {
+class Reactor(val config: Config) {
   def start() = {
     val sw = new Stopwatch(true)
     executeActions(config.source, config.beforeActions)
@@ -140,7 +140,7 @@ class Reactor(val config: Config) extends Logging {
     }
 
     executeActions(config.target, config.afterActions)
-    logger.info(s"transport complete using ${sw}")
+    SqlplusLogger.info(s"transport complete using ${sw}")
   }
 
   def close(): Unit = {
@@ -155,16 +155,16 @@ class Reactor(val config: Config) extends Logging {
         case "script" =>
           acf.contents match
             case Some(sqls) =>
-              logger.info("execute sql scripts")
+              SqlplusLogger.info("execute sql scripts")
               SqlAction.execute(source.dataSource, sqls)
             case None =>
               if (acf.properties.contains("file")) {
                 val f = new File(acf.properties("file"))
                 require(f.exists(), "sql file:" + f.getAbsolutePath + " doesn't exists")
-                logger.info("execute sql scripts " + f.getAbsolutePath)
+                SqlplusLogger.info("execute sql scripts " + f.getAbsolutePath)
                 SqlAction.execute(source.dataSource, f)
               }
-        case _ => logger.warn("Cannot support " + acf.category)
+        case _ => SqlplusLogger.warn("Cannot support " + acf.category)
       }
     }
   }

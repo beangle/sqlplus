@@ -20,8 +20,8 @@ package org.beangle.sqlplus.transport
 import org.beangle.commons.io.IOs
 import org.beangle.commons.lang.Strings
 import org.beangle.commons.lang.time.Stopwatch
-import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.query.JdbcExecutor
+import org.beangle.sqlplus.SqlplusLogger
 
 import java.io.{File, FileInputStream}
 import javax.sql.DataSource
@@ -51,7 +51,7 @@ object SqlAction {
   }
 }
 
-class SqlAction(val dataSource: DataSource, sqls: Seq[String], passthrough: Boolean = true) extends Action with Logging {
+class SqlAction(val dataSource: DataSource, sqls: Seq[String], passthrough: Boolean = true) extends Action {
   val executor = new JdbcExecutor(dataSource)
 
   def process(): Boolean = {
@@ -63,7 +63,7 @@ class SqlAction(val dataSource: DataSource, sqls: Seq[String], passthrough: Bool
         statement = Strings.replace(statement, "\n", " ")
         val sw = new Stopwatch(true)
         val rs = executeSql(statement)
-        logger.info(comment + s" ${rs}, using ${sw}")
+        SqlplusLogger.info(comment + s" ${rs}, using ${sw}")
       } else if (Strings.isNotBlank(s)) {
         executeSql(s)
       }
@@ -80,7 +80,7 @@ class SqlAction(val dataSource: DataSource, sqls: Seq[String], passthrough: Bool
       case e: Exception =>
         if (!passthrough) throw e
         else {
-          logger.error(s"execute ${sql} failed", e)
+          SqlplusLogger.error(s"execute ${sql} failed", e)
           0
         }
     }

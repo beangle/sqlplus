@@ -22,6 +22,7 @@ import org.beangle.commons.io.{Files, IOs}
 import org.beangle.commons.lang.Consoles.ColorText.{green, red}
 import org.beangle.commons.lang.{Consoles, JVM, Strings}
 import org.beangle.commons.os.Desktops
+import org.beangle.commons.xml.Document
 import org.beangle.jdbc.ds.{DataSourceUtils, DatasourceConfig, Source}
 import org.beangle.jdbc.engine.Engines
 import org.beangle.jdbc.meta.*
@@ -71,7 +72,7 @@ object Main {
 
     configurator = new Configurator
     configurator.init()
-    val xml = scala.xml.XML.loadFile(configFile)
+    val xml = Document.parse(configFile)
     val dbconf = EncryptDataSourceUtils.parseXml((xml \\ "source").head)
     if (null == dbconf.name) dbconf.name = Engines.forName(dbconf.driver).name.toLowerCase
     source = Source(dbconf)

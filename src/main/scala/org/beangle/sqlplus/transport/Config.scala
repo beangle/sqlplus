@@ -20,6 +20,7 @@ package org.beangle.sqlplus.transport
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.Files
 import org.beangle.commons.lang.{Numbers, Strings}
+import org.beangle.commons.xml.{Document, Node, NodeSeq}
 import org.beangle.jdbc.ds.Source
 import org.beangle.jdbc.meta.Schema.NameFilter
 import org.beangle.jdbc.meta.{Identifier, Relation}
@@ -27,14 +28,13 @@ import org.beangle.sqlplus.util.EncryptDataSourceUtils
 
 import java.io.InputStream
 import scala.collection.immutable.Seq
-import scala.xml.{Node, NodeSeq}
 
 object Config {
 
   private val defaultBulkSize = 50000
 
   def apply(workdir: String, is: InputStream): Config = {
-    val xml = scala.xml.XML.load(is)
+    val xml = Document.parse(is)
     val threads = Config.maxtheads(xml)
     val source = Config.db(xml, "source", threads)
     val target = Config.db(xml, "target", threads)
@@ -52,13 +52,13 @@ object Config {
     new Config(source, target, tasks, Runtime.getRuntime.availableProcessors(), defaultBulkSize, (1, 10000000))
   }
 
-  private def maxtheads(xml: scala.xml.Elem): Int = {
+  private def maxtheads(xml: Node): Int = {
     val mt = (xml \ "@max-threads").text.trim
     val maxthreads = Numbers.toInt(mt, 5)
     if (maxthreads > 0) maxthreads else 5
   }
 
-  private def datarange(xml: scala.xml.Elem): (Int, Int) = {
+  private def datarange(xml: Node): (Int, Int) = {
     val mt = (xml \ "@data-range").text.trim
     if (Strings.isEmpty(mt)) {
       (0, Int.MaxValue)
@@ -69,7 +69,7 @@ object Config {
     }
   }
 
-  private def bulkSize(xml: scala.xml.Elem): Int = {
+  private def bulkSize(xml: Node): Int = {
     val bs = (xml \ "@bulk-size").text.trim
     Numbers.toInt(bs, defaultBulkSize)
   }
@@ -82,7 +82,7 @@ object Config {
     (n \ s"@${name}").text.toLowerCase.trim()
   }
 
-  private def tasks(xml: scala.xml.Elem, source: Source, target: Source): Seq[Task] = {
+  private def tasks(xml: Node, source: Source, target: Source): Seq[Task] = {
     val tasks = Collections.newBuffer[Task]
     (xml \\ "task") foreach { ele =>
       val task = new Task(source, target)
@@ -100,8 +100,8 @@ object Config {
       tableConfig.withIndex = "true" == (ele \ "tables" \ "@index").text
       tableConfig.withConstraint = "true" == (ele \ "tables" \ "@constraint").text
       tableConfig.useUnloggedTable = "true" == (ele \ "tables" \ "@unlogged").text
-      tableConfig.includes = (ele \ "tables" \ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
-      tableConfig.excludes = (ele \ "tables" \ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      tableConfig.includes = (ele \ "tables" \ "includes").toSeq flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      tableConfig.excludes = (ele \ "tables" \ "excludes").toSeq flatten (e => Strings.split(e.text.trim.toLowerCase()))
       tableConfig.wheres = (ele \ "tables" \ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
       val prefix = (ele \ "tables" \ "@add-prefix").text.trim()
       if (!prefix.isBlank) tableConfig.prefix = Some(prefix)
@@ -111,8 +111,8 @@ object Config {
       (ele \ "views" \ "@to-case") foreach { e =>
         viewConfig.changeCase(Some(e.text.trim))
       }
-      viewConfig.includes = (ele \ "views" \ "includes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
-      viewConfig.excludes = (ele \ "views" \ "excludes") flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      viewConfig.includes = (ele \ "views" \ "includes").toSeq flatten (e => Strings.split(e.text.trim.toLowerCase()))
+      viewConfig.excludes = (ele \ "views" \ "excludes").toSeq flatten (e => Strings.split(e.text.trim.toLowerCase()))
       viewConfig.wheres = (ele \ "views" \ "where").map(e => lowcaseAttr(e, "table") -> attr(e, "value")).toMap
       task.view = viewConfig
 
@@ -125,7 +125,7 @@ object Config {
     tasks.toList
   }
 
-  private def db(xml: scala.xml.Elem, target: String, threads: Int): Source = {
+  private def db(xml: Node, target: String, threads: Int): Source = {
     val dbconf = EncryptDataSourceUtils.parseXml((xml \\ target).head)
     val maximumPoolSize = dbconf.props.getOrElse("maximumPoolSize", "1").toInt
     if (maximumPoolSize <= threads) {

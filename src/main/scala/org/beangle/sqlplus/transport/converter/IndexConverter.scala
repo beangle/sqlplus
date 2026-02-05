@@ -20,11 +20,11 @@ package org.beangle.sqlplus.transport.converter
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
-import org.beangle.commons.logging.Logging
 import org.beangle.jdbc.meta.Index
+import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.transport.Converter
 
-class IndexConverter(val target: DefaultTableStore, val threads: Int) extends Converter with Logging {
+class IndexConverter(val target: DefaultTableStore, val threads: Int) extends Converter {
 
   private val idxMap = Collections.newMap[String, Index]
 
@@ -40,17 +40,17 @@ class IndexConverter(val target: DefaultTableStore, val threads: Int) extends Co
   def start(): Unit = {
     val indexes = idxMap.values
     val indexCount = indexes.size
-    logger.info(s"Start $indexCount indexes replication in $threads threads...")
+    SqlplusLogger.info(s"Start $indexCount indexes replication in $threads threads...")
     val watch = new Stopwatch(true)
     Workers.work(indexes, index => {
       try {
         target.executor.update(target.engine.createIndex(index))
-        logger.info(s"Create index ${index.name}")
+        SqlplusLogger.info(s"Create index ${index.name}")
       } catch {
-        case e: Exception => logger.error(s"Cannot create index ${index.name}", e)
+        case e: Exception => SqlplusLogger.error(s"Cannot create index ${index.name}", e)
       }
     }, threads)
-    logger.info(s"Finish $indexCount indexes replication,using $watch")
+    SqlplusLogger.info(s"Finish $indexCount indexes replication,using $watch")
   }
 
 }
