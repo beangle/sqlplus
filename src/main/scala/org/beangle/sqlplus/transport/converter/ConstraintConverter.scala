@@ -38,12 +38,12 @@ class ConstraintConverter(val target: DefaultTableStore, val threads: Int) exten
 
   }
 
-  def start(): Unit = {
+  def start(): Boolean = {
     val constraints = constraintMap.values
     val cnt = constraints.size
     val watch = new Stopwatch(true)
     SqlplusLogger.info(s"Start $cnt constraints replication in $threads threads...")
-    Workers.work(constraints, {
+    val failed = Workers.workOn(constraints, threads) {
       case fk: ForeignKey =>
         val sql = target.engine.alterTable(fk.table).addForeignKey(fk)
         try {
@@ -53,7 +53,8 @@ class ConstraintConverter(val target: DefaultTableStore, val threads: Int) exten
           case e: Exception => SqlplusLogger.warn(s"Cannot execute $sql")
         }
       case _ =>
-    }, threads)
+    }
     SqlplusLogger.info(s"Finish $cnt constraints replication,using $watch")
+    failed == 0
   }
 }

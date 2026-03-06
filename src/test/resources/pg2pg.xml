@@ -2,13 +2,13 @@
 <transport maxthreads="10" >
   <source>
     <driver>postgresql</driver>
-    <url>jdbc:postgresql://localhost:5432/shangyin_platform</url>
+    <url>jdbc:postgresql://localhost:5432/platform</url>
     <user>postgres</user>
     <password>postgres</password>
   </source>
   <target>
     <driver>postgresql</driver>
-    <url>jdbc:postgresql://localhost:5432/shangyin_platform</url>
+    <url>jdbc:postgresql://localhost:5432/platform</url>
     <user>postgres</user>
     <password>postgres</password>
   </target>

@@ -37,20 +37,21 @@ class IndexConverter(val target: DefaultTableStore, val threads: Int) extends Co
   def reset(): Unit = {
   }
 
-  def start(): Unit = {
+  def start(): Boolean = {
     val indexes = idxMap.values
     val indexCount = indexes.size
     SqlplusLogger.info(s"Start $indexCount indexes replication in $threads threads...")
     val watch = new Stopwatch(true)
-    Workers.work(indexes, index => {
+    val failed = Workers.workOn(indexes, threads) { index =>
       try {
         target.executor.update(target.engine.createIndex(index))
         SqlplusLogger.info(s"Create index ${index.name}")
       } catch {
         case e: Exception => SqlplusLogger.error(s"Cannot create index ${index.name}", e)
       }
-    }, threads)
+    }
     SqlplusLogger.info(s"Finish $indexCount indexes replication,using $watch")
+    failed == 0
   }
 
 }

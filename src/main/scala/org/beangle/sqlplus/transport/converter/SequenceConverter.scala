@@ -49,19 +49,23 @@ class SequenceConverter(val target: DefaultTableStore) extends Converter {
     false
   }
 
-  def start(): Unit = {
+  def start(): Boolean = {
     val targetEngine = target.engine
     if (!targetEngine.supportSequence) {
       SqlplusLogger.info(s"Target database ${targetEngine.getClass.getSimpleName} doesn't support sequence,replication omitted.")
-      return
+      return true
     }
     val watch = new Stopwatch(true)
     val sequences = sequenceMap.values
     SqlplusLogger.info("Start sequence replication...")
+    var success = true
     for (sequence <- sequences) {
-      reCreate(sequence)
+      if (!reCreate(sequence)) {
+        success = false
+      }
     }
     SqlplusLogger.info(s"End ${sequences.size} sequence replication,using $watch")
+    success
   }
 
 }

@@ -40,14 +40,16 @@ object Reactor {
     }
     val workdir = new File(args(0)).getAbsoluteFile.getParent
     val reactor = new Reactor(Config(workdir, new FileInputStream(args(0))))
-    reactor.start()
+    val success = reactor.start()
     reactor.close()
+    System.exit(if success then 0 else 1)
   }
 }
 
 class Reactor(val config: Config) {
-  def start() = {
+  def start(): Boolean = {
     val sw = new Stopwatch(true)
+    var success = true
     executeActions(config.source, config.beforeActions)
 
     val converters = new collection.mutable.ListBuffer[Converter]
@@ -76,20 +78,22 @@ class Reactor(val config: Config) {
 
       val dataRange = config.dataRange
       val pairs = new LinkedBlockingQueue[Dataflow]
-      Workers.work(tables, p => {
+      val faileTableCnt = Workers.workOn(tables, config.maxthreads) { p =>
         val where = task.table.getWhere(p._1)
         val total = source.count(p._1, where)
         if (dataRange._1 <= total && total <= dataRange._2) {
           pairs.add(Dataflow(p._1, p._2, where, total))
         }
-      }, config.maxthreads)
-      Workers.work(views, p => {
+      }
+      success = success && faileTableCnt == 0
+      val faileViewCnt = Workers.workOn(views, config.maxthreads) { p =>
         val where = task.view.getWhere(p._1)
         val total = source.count(p._1, where)
         if (dataRange._1 <= total && total <= dataRange._2) {
           pairs.add(Dataflow(p._1, p._2, where, total))
         }
-      }, config.maxthreads)
+      }
+      success = success && faileViewCnt == 0
       import scala.jdk.CollectionConverters.*
       taskTables.put(task, pairs.asScala)
       dataConverter.add(pairs.asScala)
@@ -136,11 +140,13 @@ class Reactor(val config: Config) {
     if sequenceConverter.payloadCount > 0 then converters += sequenceConverter
 
     for (converter <- converters) {
-      converter.start()
+      val rs = converter.start()
+      success = success && rs
     }
 
     executeActions(config.target, config.afterActions)
     SqlplusLogger.info(s"transport complete using ${sw}")
+    success
   }
 
   def close(): Unit = {

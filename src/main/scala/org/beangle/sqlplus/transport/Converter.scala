@@ -32,7 +32,7 @@ trait Converter {
   /**
    * 开始导入
    */
-  def start(): Unit
+  def start(): Boolean
 
   def payloadCount: Int
 

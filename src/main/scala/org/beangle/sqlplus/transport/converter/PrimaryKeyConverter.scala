@@ -37,20 +37,17 @@ class PrimaryKeyConverter(val target: DefaultTableStore, threads: Int) extends C
   def reset(): Unit = {
   }
 
-  def start(): Unit = {
+  def start(): Boolean = {
     val watch = new Stopwatch(true)
     val pks = primaryKeyMap.values
     SqlplusLogger.info(s"Start ${pks.size} primary keys replication in $threads threads...")
-    Workers.work(pks, pk => {
+    val failed = Workers.workOn(pks, threads) { pk =>
       val sql = target.engine.alterTable(pk.table).addPrimaryKey(pk)
-      try {
-        target.executor.update(sql)
-        SqlplusLogger.info(s"Apply ${pk.name}(${pk.table.qualifiedName})")
-      } catch {
-        case e: Exception => SqlplusLogger.warn(s"Cannot execute $sql")
-      }
-    }, threads)
+      target.executor.update(sql)
+      SqlplusLogger.info(s"Apply ${pk.name}(${pk.table.qualifiedName})")
+    }
     SqlplusLogger.info(s"Finish ${pks.size} primary keys replication,using $watch")
+    failed == 0
   }
 
 }
