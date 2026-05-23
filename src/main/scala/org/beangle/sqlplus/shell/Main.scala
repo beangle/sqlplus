@@ -77,7 +77,7 @@ object Main {
     if (null == dbconf.name) dbconf.name = Engines.forName(dbconf.driver).name.toLowerCase
     source = Source(dbconf)
 
-    Consoles.shell(s"${source.name}> ", Set("exit", "quit", "q"), {
+    Consoles.shell(s"${source.name}> ", Set("exit", "quit", "q")) {
       case "help" => printHelp()
       case "info" => info(dbconf)
       case "dump schema" => dumpSchema(source)
@@ -108,7 +108,7 @@ object Main {
           } else
             fail(s"unknown: $t, use 'help' to get help")
         }
-    })
+    }
   }
 
   private def isSqlStart(sql: String): Boolean = {
