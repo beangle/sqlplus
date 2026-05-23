@@ -1,7 +1,7 @@
 [#ftl]
 数据库共计${sequences?size}个序列，分别如下:
 
-<table class="table table-bordered table-striped table-condensed">
+<table class="table-mini">
   <tr>
     <th class="info_header text-center">序号</th>
     <th class="info_header">表名/描述</th>

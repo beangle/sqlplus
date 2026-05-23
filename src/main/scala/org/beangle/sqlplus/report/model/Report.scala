@@ -29,7 +29,7 @@ import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.report.model.Schema as ReportSchema
 import org.beangle.sqlplus.util.EncryptDataSourceUtils
 
-import java.io.{File, FileInputStream}
+import java.io.File
 
 object Report {
 
@@ -67,11 +67,22 @@ object Report {
       val schema = new ReportSchema((ele \ "@name").text, (ele \ "@title").text, report)
       report.addSchema(schema)
       (ele \ "module") foreach { ele =>
-        val n = (ele \ "@name").text
-        val name = Some(n).filter(Strings.isNotBlank)
-        val module = new Module(schema, name, (ele \ "@title").text)
+        val name = (ele \ "@name").text
+        val t = (ele \ "@title").text
+        var tables = (ele \ "@tables").text
+        if (Strings.isBlank(tables)) tables = "@"
+
+        val module = new Module(schema, name, t, tables)
         schema.modules += module
-        (ele \ "group").foreach { ele => parseGroup(ele, report, module, name, None) }
+
+        (ele \ "image").foreach { ele =>
+          val img = new Image((ele \ "@name").text, (ele \ "@title").text, module.schema.name, (ele \ "@tables").text, ele.text.trim)
+          val direction = (ele \ "@direction").text
+          if (Strings.isNotBlank(direction) && Set("top to bottom", "left to right").contains(direction)) {
+            img.direction = Some(direction)
+          }
+          module.addImage(img)
+        }
       }
     }
 
@@ -86,30 +97,6 @@ object Report {
     report
   }
 
-  def parseGroup(node: Node, report: Report, module: Module, groupModuleName: Option[String], parent: Option[Group]): Unit = {
-    val name = (node \ "@name").text
-    var tables = (node \ "@tables").text
-    var mp = groupModuleName
-    if (Strings.isBlank(tables)) {
-      tables = "@MODULE"
-      mp = if (mp.nonEmpty) Some(mp.get + "." + name) else Some(name)
-    }
-    val group = new Group(name, (node \ "@title").text, module, mp, tables)
-    (node \ "image").foreach { ele =>
-      val img = new Image((ele \ "@name").text, (ele \ "@title").text, module.schema.name, (ele \ "@tables").text, ele.text.trim)
-      val direction = (ele \ "@direction").text
-      if (Strings.isNotBlank(direction) && Set("top to bottom", "left to right").contains(direction)) {
-        img.direction = Some(direction)
-      }
-      group.addImage(img)
-    }
-    parent match {
-      case None => module.addGroup(group)
-      case Some(p) => p.addGroup(group)
-    }
-
-    (node \ "group").foreach { ele => parseGroup(ele, report, module, groupModuleName, Some(group)) }
-  }
 }
 
 class Report(val database: Database) extends Initializing {
@@ -132,7 +119,7 @@ class Report(val database: Database) extends Initializing {
 
   var extension: String = _
 
-  val table2Group = Collections.newMap[Table, Group]
+  val table2Module = Collections.newMap[String, Module]
 
   def addSchema(schema: ReportSchema): Unit = {
     schemas :+= schema
@@ -142,12 +129,9 @@ class Report(val database: Database) extends Initializing {
     pages :+= page
   }
 
-  def allGroups: List[Group] = {
-    for (s <- schemas; m <- s.modules; g <- m.groups) yield g
-  }
 
   def allTables: List[Table] = {
-    for (s <- schemas; m <- s.modules; g <- m.groups; t <- g.tables) yield t
+    for (s <- schemas; m <- s.modules; t <- m.tables) yield t
   }
 
   def allSequences: List[Sequence] = {
@@ -156,30 +140,30 @@ class Report(val database: Database) extends Initializing {
   }
 
   def allImages: List[Image] = {
-    for (s <- schemas; m <- s.modules; g <- m.groups; i <- g.allImages) yield i
+    for (s <- schemas; m <- s.modules; i <- m.images) yield i
   }
 
   def build(): Unit = {
-    for (s <- schemas; m <- s.modules; g <- m.groups; t <- g.tables) {
-      table2Group.put(t, g)
+    for (s <- schemas; m <- s.modules; t <- m.tables) {
+      table2Module.put(t.qualifiedName, m)
     }
   }
 
   def refTableUrl(tableRef: TableRef): String = {
     database.getTable(tableRef) match {
-      case None => SqlplusLogger.warn("Cannot find group of [" + tableRef.qualifiedName + "]"); "error"
+      case None => SqlplusLogger.warn("Cannot find refer of [" + tableRef.qualifiedName + "]"); "error"
       case Some(t) =>
-        table2Group.get(t) match {
-          case None => SqlplusLogger.warn("Cannot find group of [" + tableRef.qualifiedName + "]"); ""
-          case Some(g) => contextPath + g.path + s".html#表格-${tableRef.name.value}-${t.comment.getOrElse("")}"
+        table2Module.get(t.qualifiedName) match {
+          case None => SqlplusLogger.warn("Cannot find module of [" + tableRef.qualifiedName + "]"); ""
+          case Some(g) => contextPath + g.path + s".html#${tableRef.name.value.replace('_', '-')}"
         }
     }
   }
 
   def tableUrl(table: Table): String = {
-    table2Group.get(table) match {
+    table2Module.get(table.qualifiedName) match {
       case None => SqlplusLogger.warn("Cannot find group of [" + table.qualifiedName + "]"); "error"
-      case Some(g) => contextPath + g.path + s".html#表格-${table.name.value}-${table.comment.getOrElse("")}"
+      case Some(g) => contextPath + g.path + s".html#${table.name.value.replace('_', '-')}"
     }
   }
 

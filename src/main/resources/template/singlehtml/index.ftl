@@ -1,76 +1,53 @@
 [#ftl]
 [#include "include/head.ftl"/]
 [#include "include/table.ftl"/]
-[#include "include/group.ftl"/]
 
 [#assign allImages = report.allImages/]
 [#assign allSequences= report.allSequences/]
 [#assign idx=0/]
 <div class="container">
- <div class="content">
   <div class="page-header">
-   <h1>${report.system.name} ${report.system.version!} ${report.title} </h1>
+    <h1>${report.system.name} ${report.system.version!} ${report.title} </h1>
   </div>
-
-  <div class="row-fluid">
-   <div class="span12">
-
+  <div class="span12">
     <h4>目 录</h4>
-
-    <h5>1. 数据库对象</h5>
     <ul>
-      [#assign idx=2/]
-      <li><a href="#table_list">1.1 表格一览</a></li>
-      [#if allSequences?size >0 ]<li><a href="#sequence_list">1.${idx} [#assign idx=dix+1/] 序列一览</a></li>[/#if]
-      [#if allImages?size >0]<li><a href="#image_list">1.${idx} [#assign idx=idx+1/] 模块关系图</a></li>[/#if]
-    </ul>
-
-    <h5>2. 模块列表</h5>
-    <ul>
-    [#list report.allGroups as m]
-    [@grouptree "2."+(m_index+1),m;prefix,group/]
-    [/#list]
-    </ul>
-
-    <h3 style="page-break-before:always">2. 数据库对象列表</h3>
-
-    <h4 id="table_list">2.1 表格列表</h4>
-
-    [#include "include/tables.ftl"/]
-
-    [#if allSequences?size >0 ]
-    <h4 id="sequence_list"  style="page-break-before:always">2.2 序列一览</h4>
-
-    [#include "include/sequences.ftl"/]
-    [/#if]
-
-   [#if allImages?size>0]
-    <h4 id="image_list" style="page-break-before:always">[#if allSequences?size >0 ]2.3[#else]2.2[/#if] 模块关系图</h4>
-    [#list allImages as img]
-
-    <h4>${img_index+1}. ${img.title}</h4>
-    <ul>
-      <li>关系图</li>
-    </ul>
-    <p style="text-align:center"><img src="${report.imageurl}${img.name}.png" alt="${img.title}" /></p>
-    [#if img.description?? && img.description?length>0]
-    <ul>
-      <li>说明</li>
-    </ul>
-    <p>${img.description}</p>
+    [#list report.schemas as s]
+    [#list s.modules as m]
+    [#if m.tables?size>0]
+    <li> <a href="#${m.id}">${s_index+1}.${(m_index+1)?string} ${(m.schema.title)!} ${m.title}</a></li>
     [/#if]
     [/#list]
-   [/#if]
-
-    <h3 style="page-break-before:always">3. 具体模块明细</h3>
-
-    [#list report.allGroups as m]
-    [@grouptables "3."+(m_index+1),m;prefix,group/]
     [/#list]
+    </ul>
 
-   </div>
+    [#list report.schemas as s]
+    [#list s.modules as module]
+      [#assign idx=1/]
+      <h3 id="${module.id}">${s_index+1}.${(module_index+1)?string}  ${(module.schema.title)!} ${module.title}</h3>
+      <h4>${s_index+1}.${(module_index+1)?string}.${idx} 表格列表</h4>
+      [#include "include/tables.ftl"/]
+      [#if module.images?size>0]
+        [#assign idx=idx+1/]
+        <h4>${s_index+1}.${(module_index+1)?string}.${idx} 关系图</h4>
+        [#list module.images as img]
+        <h5>${img_index+1}. ${img.title}</h4>
+        <p style="text-align:center"><img src="${report.imageurl}${img.name}.png" alt="${img.title}" /></p>
+        [#if img.description?? && img.description?length>0]
+        <ul><li>说明</li></ul>
+        <p>${img.description}</p>
+        [/#if]
+        [/#list]
+      [/#if]
+      [#assign idx=idx+1/]
+      <h4>${s_index+1}.${(module_index+1)?string}.${idx} 表格明细</h4>
+      [#list module.tables?sort_by("name") as table]
+      <h5 id="table_${table.qualifiedName?lower_case}">${s_index+1}.${(module_index+1)?string}.${idx}.${table_index+1} 表格${table.qualifiedName?lower_case} ${table.comment!}</h5>
+      [@drawtable table/]
+      [/#list]
+    [/#list]
+    [/#list]
   </div>
- </div>
 </div>
 </body>
 </html>

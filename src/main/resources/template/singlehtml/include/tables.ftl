@@ -1,11 +1,9 @@
 [#ftl]
-[#list report.schemas as schema]
-  [#list schema.modules as module]
-    [#list module.groups as group]
-    [#assign tables = group.tables/]
-${schema.title}中的${module.title}-${group.title}下共计${tables?size}个表(${schema.name}.)，分别如下:
+    [#assign tables = module.tables/]
+[#if tables?size>0]
+${module.schema.title}中的${module.title}下共计${tables?size}个表(${module.schema.name}.)，分别如下:
 
-<table class="table table-bordered table-striped table-condensed">
+<table class="table table-sm table-mini">
   <thead>
     <tr>
       <th class="info_header index_td" width="7%">序号</th>
@@ -14,7 +12,7 @@ ${schema.title}中的${module.title}-${group.title}下共计${tables?size}个表
       <th class="info_header" width="43%">表名/描述</th>
     </tr>
   </thead>
-  [#if tables?size>0]
+
   [#assign tabcnt = (tables?size/2)?int]
   [#if tables?size%2>0][#assign tabcnt = tabcnt+1][/#if]
   [#assign sortedTables = tables?sort_by("name")/]
@@ -33,9 +31,6 @@ ${schema.title}中的${module.title}-${group.title}下共计${tables?size}个表
     [/#if]
   </tr>
   [/#list]
-  [/#if]
-</table>
 
-[/#list]
-[/#list]
-[/#list]
+</table>
+[/#if]

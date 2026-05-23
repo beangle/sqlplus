@@ -25,7 +25,7 @@ import org.beangle.commons.io.Files.{/, stringWriter}
 import org.beangle.commons.lang.Strings.isEmpty
 import org.beangle.jdbc.meta.Table
 import org.beangle.sqlplus.SqlplusLogger
-import org.beangle.sqlplus.report.model.{Group, Module, Report}
+import org.beangle.sqlplus.report.model.{Module, Report}
 import org.beangle.template.freemarker.BeangleObjectWrapper
 
 import java.io.File
@@ -86,22 +86,14 @@ class Reporter(val report: Report, val dir: String) {
   cfg.setObjectWrapper(new BeangleObjectWrapper)
 
   def filterTables(): Unit = {
-    for (s <- report.schemas; m <- s.modules) {
+    for (s <- report.schemas) {
       val schema = report.database.getSchema(s.name).get
       val schemaTables = new collection.mutable.HashSet[Table]
-      schema.tables.values foreach { t =>
-        m.name match {
-          case None => schemaTables += t
-          case Some(pkg) =>
-            t.module foreach { mn =>
-              if (mn.startsWith(pkg)) schemaTables += t
-            }
-        }
+      schemaTables.addAll(schema.tables.values)
+      for (m <- s.modules) {
+        m.filter(schemaTables)
+        for (image <- m.images) image.select(report.database)
       }
-      val allTables = schemaTables.toList
-      for (group <- m.groups) group.filter(schemaTables)
-      for (image <- m.images) image.select(report.database)
-      m.tables = allTables
     }
     report.build()
   }
@@ -115,37 +107,21 @@ class Reporter(val report: Report, val dir: String) {
       data += ("sequences" -> report.allSequences)
       render(data, "index", dir)
     } else {
-      for (rs <- report.schemas; s <- rs.modules) {
-        SqlplusLogger.info(s"rendering module ${s.id}")
+      for (rs <- report.schemas; m <- rs.modules) {
+        SqlplusLogger.info(s"rendering module ${m.id}")
         val schema = report.database.getSchema(rs.name).get
         val data = new collection.mutable.HashMap[String, Any]
         data += ("engine" -> report.database.engine)
         data += ("tablesMap" -> schema.tables)
         data += ("report" -> report)
         data += ("sequences" -> schema.sequences)
-        data += ("module" -> s)
+        data += ("module" -> m)
 
         for (page <- report.pages) {
-          if (page.iterable) {
-            s.groups foreach { group =>
-              renderGroup(s, group, page.name, data)
-            }
-          } else {
-            data.remove("group")
-            render(data, page.name, moduleBaseDir(s))
-          }
+          render(data, page.name, moduleBaseDir(m))
         }
       }
     }
-  }
-
-  def renderGroup(rs: Module, group: Group, template: String, data: collection.mutable.HashMap[String, Any]): Unit = {
-    data.put("group", group)
-    if (group.tables.nonEmpty) {
-      SqlplusLogger.info(s"rendering $group")
-      render(data, template, moduleBaseDir(rs), group.fullName)
-    }
-    for (g <- group.children) renderGroup(rs, g, template, data)
   }
 
   def genImages(): Unit = {
@@ -178,8 +154,7 @@ class Reporter(val report: Report, val dir: String) {
   }
 
   private def moduleBaseDir(module: Module): String = {
-    val packageName = module.name.map(/ + _).getOrElse("")
-    dir + / + module.schema.name + packageName
+    dir + / + module.schema.name + / + module.name
   }
 
   private def render(data: collection.mutable.HashMap[String, Any], template: String, base: String, result: String = ""): Unit = {

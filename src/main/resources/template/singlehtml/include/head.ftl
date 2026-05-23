@@ -64,6 +64,48 @@
     .index_td{
       text-align:center;
     }
+    /*自定义css*/
+    table.table-mini{
+      width: 100% !important;
+      table-layout: fixed;
+      border-collapse: collapse;
+      display: table;
+    }
+
+    table.table-mini td,
+    table.table-mini th {
+      box-sizing: border-box;
+      padding: 5px 5px !important;
+      word-wrap: break-word;
+    }
+
+    /*自定义css*/
+    table.table-entity{
+      width: 100% !important;
+      table-layout: fixed;
+      border-collapse: collapse;
+      display: table;
+      margin:0px;
+    }
+
+    table.table-entity td,
+    table.table-entity th {
+      box-sizing: border-box;
+      padding: 1px 1px !important;
+      word-wrap: break-word;
+    }
+
+    .text-right {
+      text-align: right !important;
+    }
+
+    td.table-entity-title{
+      color: #8a6d3b !important;
+      background-color: #fcf8e3 !important;
+      font-weight: bold;
+      text-align: right !important;
+    }
+
     @media print{
       body{
         line-height:1;

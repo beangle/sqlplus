@@ -17,34 +17,37 @@
 
 package org.beangle.sqlplus.report.model
 
-import org.beangle.commons.collection.Collections
 import org.beangle.jdbc.meta.Table
 
-import scala.collection.mutable
+class Module(val schema: Schema, val name: String, val title: String, tablePatterns: String) extends TableContainer {
 
-class Module(val schema: Schema, val name: Option[String], val title: String) {
 
-  var groups: mutable.Buffer[Group] = Collections.newBuffer[Group]
+  var images: List[Image] = List.empty
+
+  override val patterns = TableContainer.buildPatterns(schema.name, if tablePatterns == "@" then "*" else tablePatterns)
 
   def id: String = {
-    schema.name + name.map("." + _).getOrElse("")
+    schema.name + "." + name
   }
 
   def path: String = {
-    val packageName = name.map("/" + _).getOrElse("")
-    "/" + schema.name + packageName
+    "/" + schema.name + "/" + name
   }
 
-  def addGroup(g: Group): Unit = {
-    groups += g
+  def addImage(image: Image): Unit = {
+    images :+= image
   }
 
-  var tables: Iterable[Table] = _
-
-  def images: List[Image] = {
-    val buf = new collection.mutable.ListBuffer[Image]
-    for (g <- groups) buf ++= g.allImages
-    buf.toList
+  def filter(alltables: collection.mutable.Set[Table]): Unit = {
+    for (table <- alltables) if (matches(table)) addTable(table)
+    alltables --= tables
   }
 
+  override def matches(table: Table): Boolean = {
+    if (tablePatterns == "@") {
+      table.module.exists(_.startsWith(this.name))
+    } else {
+      super.matches(table)
+    }
+  }
 }
