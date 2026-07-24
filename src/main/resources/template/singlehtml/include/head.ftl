@@ -63,6 +63,7 @@
     }
     .index_td{
       text-align:center;
+      width: 5%;
     }
     /*自定义css*/
     table.table-mini{

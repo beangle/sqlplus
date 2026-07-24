@@ -2,7 +2,7 @@
 
 if [ $# -eq 0 ]; then
   echo "Usage:
-   transport.sh /path/to/config.xml"
+   sqlplus.sh /path/to/config.xml"
   exit 1
 fi
 
