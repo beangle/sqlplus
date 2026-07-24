@@ -24,11 +24,16 @@ ThisBuild / developers := List(
 ThisBuild / description := "The Beangle DB Utility"
 ThisBuild / homepage := Some(url("https://beangle.github.io/sqlplus/index.html"))
 
-val beangle_commons = "org.beangle.commons" % "beangle-commons" % "6.1.2"
-val beangle_template = "org.beangle.template" % "beangle-template" % "0.2.6"
-val beangle_jdbc = "org.beangle.jdbc" % "beangle-jdbc" % "1.1.8"
+val beangle_commons = "org.beangle.commons" % "beangle-commons" % "6.2.1"
+val beangle_template = "org.beangle.template" % "beangle-template" % "0.2.8"
+val beangle_jdbc = "org.beangle.jdbc" % "beangle-jdbc" % "1.1.10-SNAPSHOT"
 
-val commonDeps = Seq(beangle_commons, beangle_jdbc, beangle_template, logback_classic, logback_core,
+val jline_version = "3.28.0"
+val jline = "org.jline" % "jline" % jline_version
+val jline_terminal_jansi = "org.jline" % "jline-terminal-jansi" % jline_version
+
+val commonDeps = Seq(beangle_commons, beangle_jdbc, beangle_template, jline, jline_terminal_jansi,
+  logback_classic, logback_core,
   scalatest, HikariCP, plantuml, freemarker,
   postgresql, h2, jtds, ojdbc11, orai18n, mysql_connector_java, mssql_jdbc)
 

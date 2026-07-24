@@ -2,7 +2,9 @@
 
 if [ $# -eq 0 ]; then
   echo "Usage:
-   sqlplus.sh /path/to/config.xml"
+  sqlplus.sh /path/to/db.xml
+  sqlplus.sh transport /path/to/conversion.xml
+  sqlplus.sh validate /path/to/basis.xml"
   exit 1
 fi
 
