@@ -48,20 +48,20 @@ object Main {
 
   private val maxColumnDisplaySize = 50
 
-  /** Max rows shown for SELECT (0 = unlimited). */
+  /** Max rows shown for SELECT on the console (0 = unlimited; ignored while spooling). */
   private var resultLimit = 10
 
   /** Max characters per column in table format. */
   private var maxColWidth = maxColumnDisplaySize
 
-  /** Result display format for SELECT. */
+  /** Result display format for SELECT on the console (ignored while spooling). */
   private var resultFormat: ResultFormat = ResultFormat.Table
 
-  /** Optional spool file for SELECT output. */
+  /** Optional spool file for SELECT output (always written as CSV). */
   private var spoolFile: Option[File] = None
 
   enum ResultFormat:
-    case Table, Vertical, Csv
+    case Table, Vertical
 
   def main(args: Array[String]): Unit = {
     if args.isEmpty then
@@ -162,13 +162,15 @@ object Main {
     info(s"limit=${if resultLimit <= 0 then "unlimited" else resultLimit}")
     info(s"width=$maxColWidth")
     info(s"format=${resultFormat.toString.toLowerCase}")
-    info(s"spool=${spoolFile.map(_.getAbsolutePath).getOrElse("off")}")
+    spoolFile match
+      case Some(f) => info(s"spool=${f.getAbsolutePath} (csv)")
+      case None => info("spool=off")
   }
 
   private def applySetting(expr: String): Unit = {
     val parts = Strings.split(expr.trim)
     if parts.length < 2 then
-      fail("usage: set limit <n> | set width <n> | set format table|vertical|csv")
+      fail("usage: set limit <n> | set width <n> | set format table|vertical")
       return
     parts(0).toLowerCase match
       case "limit" =>
@@ -191,10 +193,7 @@ object Main {
           case "vertical" | "g" =>
             resultFormat = ResultFormat.Vertical
             success("format=vertical")
-          case "csv" =>
-            resultFormat = ResultFormat.Csv
-            success("format=csv")
-          case other => fail(s"unknown format: $other (table|vertical|csv)")
+          case other => fail(s"unknown format: $other (table|vertical)")
       case other => fail(s"unknown setting: $other")
   }
 
@@ -209,7 +208,8 @@ object Main {
         case parent if parent != null && !parent.exists() => parent.mkdirs()
         case _ =>
       spoolFile = Some(file)
-      success(s"spool ${file.getAbsolutePath}")
+      // File output is always CSV; does not change console `format`
+      success(s"spool ${file.getAbsolutePath} (csv)")
   }
 
   private def resolvePath(path: String): File = {
@@ -265,31 +265,39 @@ object Main {
       if (sql.trim.toLowerCase.startsWith("select")) {
         val rs = jdbcExecutor.iterate(sql)
         val columnNames = rs.columnNames
-        val max = if resultLimit <= 0 then Int.MaxValue else resultLimit
-        val rows = Collections.newBuffer[Array[_]]
-        var truncated = false
         try
-          while rs.hasNext && rows.size < max do
-            rows += rs.next()
-          if rs.hasNext then truncated = true
+          if spoolFile.isDefined then
+            // Spool: full result as CSV (ignore console `set limit` / format); stream rows
+            val spoolWriter = openSpoolWriter()
+            try
+              var count = 0
+              emit(ResultFormatter.csvHeader(columnNames), spoolWriter)
+              while rs.hasNext do
+                emit(ResultFormatter.csvRow(columnNames, rs.next()), spoolWriter)
+                count += 1
+              val rowLabel = if count == 1 then "(1 row)" else s"($count rows)"
+              info(s"$rowLabel ($sw)")
+            finally
+              closeSpoolWriter(spoolWriter)
+          else
+            val max = if resultLimit <= 0 then Int.MaxValue else resultLimit
+            val rows = Collections.newBuffer[Array[_]]
+            var truncated = false
+            while rs.hasNext && rows.size < max do
+              rows += rs.next()
+            if rs.hasNext then truncated = true
+            if rows.isEmpty then
+              info(s"(0 rows) ($sw)")
+            else
+              val lines = format match
+                case ResultFormat.Table => ResultFormatter.table(columnNames, rows.toSeq, maxColWidth)
+                case ResultFormat.Vertical => ResultFormatter.vertical(columnNames, rows.toSeq)
+              lines.foreach(emit(_, None))
+              if truncated then info("...")
+              val rowLabel = if rows.size == 1 then "(1 row)" else s"(${rows.size} rows)"
+              info(s"$rowLabel ($sw)")
         finally
           rs.close()
-
-        val spoolWriter = openSpoolWriter()
-        try
-          if rows.isEmpty && format != ResultFormat.Csv then
-            info(s"(0 rows) ($sw)")
-          else
-            val lines = format match
-              case ResultFormat.Table => ResultFormatter.table(columnNames, rows.toSeq, maxColWidth)
-              case ResultFormat.Vertical => ResultFormatter.vertical(columnNames, rows.toSeq)
-              case ResultFormat.Csv => ResultFormatter.csv(columnNames, rows.toSeq)
-            lines.foreach(emit(_, spoolWriter))
-            if truncated then info("...")
-            val rowLabel = if rows.size == 1 then "(1 row)" else s"(${rows.size} rows)"
-            info(s"$rowLabel ($sw)")
-        finally
-          closeSpoolWriter(spoolWriter)
       } else {
         val affected = jdbcExecutor.update(sql.trim)
         val lower = sql.trim.toLowerCase
@@ -541,11 +549,11 @@ object Main {
         |  find pattern      find the tables which match the pattern
         |  desc table        describe the table
         |  set               show current settings
-        |  set limit n       max rows for select (0=unlimited, default 10)
+        |  set limit n       max rows for console select (0=unlimited, default 10; ignored while spooling)
         |  set width n       max column width in table format (default 50)
-        |  set format ...    table | vertical | csv
-        |  spool file        write select results to file only (console shows summary)
-        |  spool off         stop spooling
+        |  set format ...    table | vertical  (console; ignored while spooling)
+        |  spool file        write full select results as CSV (no set limit; console shows summary)
+        |  spool off         stop spooling (format/limit unchanged)
         |  @file.sql         execute SQL script (also: source file.sql)
         |  select ...;       run query (append \G for vertical once)
         |  update ...        update table set ... where ...

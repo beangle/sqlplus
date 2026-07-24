@@ -71,11 +71,14 @@ object ResultFormatter {
     lines.toSeq
   }
 
-  def csv(columns: Array[String], rows: Seq[Array[_]]): Seq[String] = {
-    val header = columns.map(escapeCsv).mkString(",")
-    val body = rows.map(r => columns.indices.map(i => escapeCsv(cellText(safeAt(r, i)))).mkString(","))
-    header +: body
-  }
+  def csv(columns: Array[String], rows: Seq[Array[_]]): Seq[String] =
+    csvHeader(columns) +: rows.map(r => csvRow(columns, r))
+
+  def csvHeader(columns: Array[String]): String =
+    columns.map(escapeCsv).mkString(",")
+
+  def csvRow(columns: Array[String], row: Array[_]): String =
+    columns.indices.map(i => escapeCsv(cellText(safeAt(row, i)))).mkString(",")
 
   private def alignedRow(cells: Array[String], widths: Array[Int], numeric: Array[Boolean]): String = {
     widths.indices.map { i =>

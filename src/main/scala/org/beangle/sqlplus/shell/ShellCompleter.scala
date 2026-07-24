@@ -65,7 +65,7 @@ class ShellCompleter(meta: ShellCompleter.Meta = ShellCompleter.Meta.empty) exte
     "dump schema", "report schema", "validate schema", "dump data",
     "list tmp", "drop tmp", "list schema",
     "find ", "desc ", "use ",
-    "set", "set limit ", "set width ", "set format ", "set format table", "set format vertical", "set format csv",
+    "set", "set limit ", "set width ", "set format ", "set format table", "set format vertical",
     "spool ", "spool off", "source "
   )
 
@@ -73,7 +73,7 @@ class ShellCompleter(meta: ShellCompleter.Meta = ShellCompleter.Meta.empty) exte
     "help", "info", "exit", "quit",
     "dump", "report", "validate", "list", "drop", "find", "desc", "use",
     "schema", "data", "tmp",
-    "set", "limit", "width", "format", "table", "vertical", "csv",
+    "set", "limit", "width", "format", "table", "vertical",
     "spool", "off", "source",
     "select", "insert", "update", "delete", "alter", "create", "grant",
     "from", "where", "and", "or", "order", "group", "by", "into", "values",

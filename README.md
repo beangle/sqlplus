@@ -103,16 +103,15 @@ Default table format is **psql aligned** (display-width aware for CJK so Chinese
 
 ```text
 set                  # show settings
-set limit 50         # max rows (0 = unlimited, default 10)
+set limit 50         # max rows on console (0 = unlimited, default 10; ignored while spooling)
 set width 40         # max column display width (default 50)
-set format table     # psql-style aligned table
-set format vertical  # expanded records (psql \x style)
-set format csv       # CSV
-spool /tmp/out.csv   # write result data to file only; console shows summary
-spool off
+set format table     # console: psql-style aligned table
+set format vertical  # console: expanded records (psql \x style)
+spool /tmp/out.csv   # SELECT → full CSV (no set limit); console shows summary only
+spool off            # stop spooling; console format/limit unchanged
 ```
 
-With `spool` on, result rows go to the file only; the console shows summaries such as `(N rows)` and timing. Status lines are never written into CSV spool files.
+With `spool` on, SELECT rows are streamed as **CSV** to the file — the full result set (SQL `LIMIT` / filters still apply; console `set limit` does not). Console `format` is only `table` | `vertical` (plus once-off `\G`) and is left unchanged across `spool` / `spool off`. The console only shows summaries such as `(N rows)` and timing; status lines are never written into the spool file.
 
 ### Tab completion
 

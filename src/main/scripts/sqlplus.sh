@@ -51,7 +51,7 @@ export slf4j_ver=2.0.18
 export logback_ver=1.5.34
 export commons_compress_ver=1.28.0
 export boot_ver=0.1.28
-export beangle_sqlplus_ver=0.2.1
+export beangle_sqlplus_ver=0.2.2
 
 download org.scala-lang scala-library $scala_ver
 download org.scala-lang scala-reflect $scala_ver
