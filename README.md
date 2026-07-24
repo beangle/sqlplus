@@ -160,10 +160,8 @@ Edit config file (oracle to postgresql etc.)
 </transport>
 ```
 
-Download scripts:
+Run with:
 
 ```bash
-wget https://raw.githubusercontent.com/beangle/db/main/src/main/scripts/transport.sh
-chmod +x transport.sh
-./transport.sh /path/to/your.xml
+./sqlplus.sh transport /path/to/your.xml
 ```
