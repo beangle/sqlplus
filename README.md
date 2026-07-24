@@ -42,21 +42,30 @@ All arguments after the script are passed through unchanged. Optional env vars:
 | `M2_REMOTE_REPO` | `https://maven.aliyun.com/repository/public` | Remote Maven repository |
 | `M2_REPO` | `$HOME/.m2/repository` | Local Maven cache |
 
-For development from source you can still use `sbt "run /path/to/db.xml"` instead of the published jar.
+The script pins `beangle-sqlplus` to a release version (see `beangle_sqlplus_ver` in the script). For development from source use `sbt "run /path/to/db.xml"` instead.
 
 ---
 
 ## Interactive shell
+
+Built on **JLine 4** (JNI terminal backend). Prefer a real TTY: system terminal, Windows Terminal, or IDEA “Emulate terminal”. Plain IDE consoles may fall back to dumb mode (no arrow/Tab).
 
 ### Line editing & history
 
 - **↑ / ↓** browse history (persisted in `~/.sqlplus_history`)
 - **← / →** move cursor; **Ctrl+R** search history
 - **Ctrl+C** clear current line; **Ctrl+D** or `exit` / `quit` / `q` leave
-- Multi-line SQL: continue until `;` or `/`; prompt becomes `   -> `
 - Wrong / failed commands are still stored in history (same as bash)
 
-Use a real TTY (system terminal or IDEA “Emulate terminal”). Plain IDE consoles may fall back to dumb mode without arrow/Tab support.
+#### Multi-line SQL (psql-style)
+
+If the first significant line looks like SQL (`select` / `insert` / …) and there is no terminator yet, JLine keeps reading with secondary prompt `   -> ` until you end with `;`, `/`, or `\G`. The whole statement is **one history entry** (↑ recalls all lines together). Non-SQL meta commands still complete on a single Enter.
+
+```text
+db> select id, name
+   -> from users
+   -> where active = true;
+```
 
 ### Meta commands
 
@@ -67,7 +76,7 @@ Use a real TTY (system terminal or IDEA “Emulate terminal”). Plain IDE conso
 | `list schema` | List schemas |
 | `use schema` | Switch schema |
 | `find pattern` | Find tables/views (optional `table` / `view` prefix) |
-| `desc name` | Describe table/view |
+| `desc name` | Describe table/view (see below) |
 | `list tmp` / `drop tmp` | List or drop temporary-like tables |
 | `dump schema` | Dump schema to XML |
 | `report schema` | HTML schema report |
@@ -75,26 +84,35 @@ Use a real TTY (system terminal or IDEA “Emulate terminal”). Plain IDE conso
 | `dump data` | Dump data into local H2 |
 | `@file.sql` / `source file.sql` | Run a SQL script (`;`-separated) |
 
+#### `desc`
+
+- Table columns: **primary-key columns first** (PK definition order), then other columns **alphabetically** (case-insensitive).
+- Views: columns sorted alphabetically.
+- If a primary key exists, the footer line is marked: `🔑 primary key: ...`
+
 ### SQL
 
 - Supported starters: `select` / `insert` / `update` / `delete` / `alter` / `create` / `drop` / `grant`
 - End a statement with `;` or `/`
 - Once-off vertical layout: end with `\G` (psql-like expanded / mysql `\G`)
+- Each statement prints elapsed time; DML shows affected row counts
 
 ### Result display & settings
 
-Default table format is **psql aligned** (display-width aware for CJK).
+Default table format is **psql aligned** (display-width aware for CJK so Chinese columns stay aligned).
 
 ```text
 set                  # show settings
 set limit 50         # max rows (0 = unlimited, default 10)
 set width 40         # max column display width (default 50)
 set format table     # psql-style aligned table
-set format vertical  # expanded records
+set format vertical  # expanded records (psql \x style)
 set format csv       # CSV
 spool /tmp/out.csv   # write result data to file only; console shows summary
 spool off
 ```
+
+With `spool` on, result rows go to the file only; the console shows summaries such as `(N rows)` and timing. Status lines are never written into CSV spool files.
 
 ### Tab completion
 

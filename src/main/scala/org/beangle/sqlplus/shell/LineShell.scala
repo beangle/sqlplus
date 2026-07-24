@@ -29,40 +29,30 @@ class LineShell(appName: String = "sqlplus",
                 meta: ShellCompleter.Meta = ShellCompleter.Meta.empty) extends AutoCloseable {
 
   // dumb(true): IDEA/sbt console is not a real TTY; fall back instead of failing
+  // JLine 4: use JNI terminal provider (jansi removed); Windows 10+ uses native console/ANSI
   private val terminal = TerminalBuilder.builder()
     .system(true)
-    .jansi(true)
     .dumb(true)
     .build()
 
   private val reader = LineReaderBuilder.builder()
     .terminal(terminal)
     .appName(appName)
+    .parser(new SqlStatementParser)
     .completer(new ShellCompleter(meta))
     .option(LineReader.Option.HISTORY_IGNORE_DUPS, true)
     .variable(LineReader.HISTORY_FILE, Paths.get(System.getProperty("user.home"), s".$appName" + "_history"))
+    .variable(LineReader.SECONDARY_PROMPT_PATTERN, "   -> ")
     // Avoid "Display all N possibilities?" for our capped (~100) metadata lists
     .variable(LineReader.LIST_MAX, Integer.valueOf(200))
     .build()
 
-  /** Reads a line with optional history recording (disabled for SQL continuation lines). */
-  def readLine(prompt: String, recordHistory: Boolean = true): String = {
-    val previous = reader.getVariable(LineReader.DISABLE_HISTORY)
-    if !recordHistory then reader.setVariable(LineReader.DISABLE_HISTORY, true)
-    try
-      try reader.readLine(prompt)
-      catch
-        case _: org.jline.reader.UserInterruptException => ""
-        case _: org.jline.reader.EndOfFileException => null
-    finally
-      if !recordHistory then
-        if previous == null then reader.setVariable(LineReader.DISABLE_HISTORY, false)
-        else reader.setVariable(LineReader.DISABLE_HISTORY, previous)
-  }
-
-  /** Adds a completed command to history (e.g. a multi-line SQL statement). */
-  def addHistory(entry: String): Unit = {
-    if Strings.isNotBlank(entry) then reader.getHistory.add(entry.trim)
+  /** Reads a line (or a finished multi-line SQL statement via SqlStatementParser). */
+  def readLine(prompt: String): String = {
+    try reader.readLine(prompt)
+    catch
+      case _: org.jline.reader.UserInterruptException => ""
+      case _: org.jline.reader.EndOfFileException => null
   }
 
   /** Prompts for input; returns default when empty. */

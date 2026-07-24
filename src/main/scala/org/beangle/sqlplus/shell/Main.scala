@@ -46,8 +46,6 @@ object Main {
 
   private var configurator: Configurator = _
 
-  private val buf = Collections.newBuffer[String]
-
   private val maxColumnDisplaySize = 50
 
   /** Max rows shown for SELECT (0 = unlimited). */
@@ -99,8 +97,7 @@ object Main {
     try
       var exit = false
       while !exit do
-        val prompt = if buf.nonEmpty then "   -> " else s"${source.name}> "
-        val line = shell.readLine(prompt, recordHistory = buf.isEmpty)
+        val line = shell.readLine(s"${source.name}> ")
         if line == null then exit = true
         else
           val content = Strings.trim(line)
@@ -153,29 +150,12 @@ object Main {
             find(source, extractParam("find ", cmd))
           else if cmd.startsWith("desc ") then
             desc(source, extractParam("desc ", cmd))
-          else if buf.nonEmpty || isSqlStart(cmd) then
-            val terminator = sqlTerminator(cmd)
-            if terminator.isDefined then
-              val continuing = buf.nonEmpty
-              val body = cmd.substring(0, cmd.length - terminator.get.length).trim
-              buf += body
-              val sql = buf.mkString(" ")
-              buf.clear()
-              if continuing then shell.addHistory(sql)
-              val format =
-                if terminator.contains("\\G") || terminator.contains("\\g") then ResultFormat.Vertical
-                else resultFormat
-              execSql(source, sql, format)
-            else
-              buf += cmd
+          else if SqlStatementParser.isSqlStart(SqlStatementParser.firstSignificantLine(cmd)) then
+            val (sql, vertical) = SqlStatementParser.stripTerminator(cmd)
+            val format = if vertical then ResultFormat.Vertical else resultFormat
+            execSql(source, sql, format)
           else
             fail(s"unknown: $t, use 'help' to get help")
-  }
-
-  private def sqlTerminator(cmd: String): Option[String] = {
-    if cmd.endsWith("\\G") || cmd.endsWith("\\g") then Some(cmd.substring(cmd.length - 2))
-    else if cmd.endsWith(";") || cmd.endsWith("/") then Some(cmd.substring(cmd.length - 1))
-    else None
   }
 
   private def showSettings(): Unit = {
@@ -262,13 +242,6 @@ object Main {
     }
   }
 
-  private def isSqlStart(sql: String): Boolean = {
-    val cmd = sql.toLowerCase
-    cmd.startsWith("select ") || cmd.startsWith("insert ") ||
-      cmd.startsWith("alter ") || cmd.startsWith("update ") || cmd.startsWith("delete ") ||
-      cmd.startsWith("create ") || cmd.startsWith("drop ") || cmd.startsWith("grant ")
-  }
-
   private def extractParam(cmdPrefix: String, t: String): String = {
     val cmd = if t.endsWith(";") then t.substring(0, t.length - 1).trim else t.trim
     cmd.substring(cmdPrefix.length).trim
@@ -352,7 +325,7 @@ object Main {
     ensureDatabase()
     val tables = database.findTables(name)
     tables.foreach { table =>
-      val model = Map("table" -> table)
+      val model = Map("table" -> table, "columns" -> orderedTableColumns(table))
       try {
         val desc = configurator.render("table.ftl", model)
         info(desc)
@@ -362,13 +335,27 @@ object Main {
 
     val views = database.findViews(name)
     views.foreach { view =>
-      val model = Map("view" -> view)
+      val model = Map("view" -> view, "columns" -> view.columns.toSeq.sortBy(_.name.value.toLowerCase))
       try {
         val desc = configurator.render("view.ftl", model)
         info(desc)
       } catch
         case e: Exception => e.printStackTrace()
     }
+  }
+
+  /** Primary-key columns first (PK order), then other columns alphabetically. */
+  private def orderedTableColumns(table: Table): Seq[Column] = {
+    val pkIds = table.primaryKey.toSeq.flatMap(_.columns.toSeq)
+    val pkNames = pkIds.map(_.value.toLowerCase).toSet
+    val pkCols = pkIds.flatMap { id =>
+      table.columns.find(_.name.value.equalsIgnoreCase(id.value))
+    }
+    val others = table.columns
+      .filterNot(c => pkNames.contains(c.name.value.toLowerCase))
+      .toSeq
+      .sortBy(_.name.value.toLowerCase)
+    pkCols ++ others
   }
 
   def find(src: Source, name: String): Unit = {
