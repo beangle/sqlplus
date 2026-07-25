@@ -42,6 +42,7 @@ class LineShell(appName: String = "sqlplus",
     .appName(appName)
     .parser(new SqlStatementParser)
     .completer(new ShellCompleter(meta))
+    .option(LineReader.Option.CASE_INSENSITIVE, true)
     .option(LineReader.Option.HISTORY_IGNORE_DUPS, true)
     .variable(LineReader.HISTORY_FILE, Paths.get(System.getProperty("user.home"), s".$appName" + "_history"))
     .variable(LineReader.SECONDARY_PROMPT_PATTERN, "   -> ")
