@@ -19,7 +19,7 @@ package org.beangle.sqlplus.shell
 
 import org.beangle.commons.lang.Strings
 import org.jline.reader.impl.history.DefaultHistory
-import org.jline.reader.{LineReader, LineReaderBuilder}
+import org.jline.reader.{LineReader, LineReaderBuilder, Reference}
 import org.jline.terminal.TerminalBuilder
 
 import java.nio.file.Paths
@@ -46,6 +46,11 @@ class LineShell(appName: String = "sqlplus",
     // Avoid "Display all N possibilities?" for our capped (~100) metadata lists
     .variable(LineReader.LIST_MAX, Integer.valueOf(200))
     .build()
+
+  // Some Linux terminals deliver Enter as CR while JLine only binds LF.
+  // Bind both explicitly so Enter and Ctrl+J consistently accept the line.
+  private val acceptLine = new Reference(LineReader.ACCEPT_LINE)
+  reader.getKeyMaps.get(LineReader.MAIN).bind(acceptLine, "\r", "\n")
 
   /** Reads a line (or a finished multi-line SQL statement via SqlStatementParser). */
   def readLine(prompt: String): String = {
