@@ -18,9 +18,11 @@
 package org.beangle.sqlplus.shell
 
 import org.beangle.commons.lang.Strings
+import org.jline.keymap.KeyMap
 import org.jline.reader.impl.history.DefaultHistory
 import org.jline.reader.{LineReader, LineReaderBuilder, Reference}
 import org.jline.terminal.TerminalBuilder
+import org.jline.utils.InfoCmp.Capability
 
 import java.nio.file.Paths
 
@@ -47,10 +49,11 @@ class LineShell(appName: String = "sqlplus",
     .variable(LineReader.LIST_MAX, Integer.valueOf(200))
     .build()
 
-  // Some Linux terminals deliver Enter as CR while JLine only binds LF.
-  // Bind both explicitly so Enter and Ctrl+J consistently accept the line.
+  // JLine enables application keypad mode but does not bind the terminal's
+  // key_enter capability (for example, PuTTY may send Enter as ESC O M).
   private val acceptLine = new Reference(LineReader.ACCEPT_LINE)
-  reader.getKeyMaps.get(LineReader.MAIN).bind(acceptLine, "\r", "\n")
+  private val enterKeys = Seq("\r", "\n", KeyMap.key(terminal, Capability.key_enter)).filter(_ != null).distinct
+  reader.getKeyMaps.get(LineReader.MAIN).bind(acceptLine, enterKeys*)
 
   /** Reads a line (or a finished multi-line SQL statement via SqlStatementParser). */
   def readLine(prompt: String): String = {
