@@ -39,6 +39,16 @@ object Reactor {
     results.forall(_.isSuccess)
   }
 
+  private[transport] def selectResult(stage: String, items: Set[String], result: StageResult): StageResult = {
+    StageResult(
+      stage,
+      items.size,
+      result.succeededItems.intersect(items),
+      0,
+      result.partials.filter(x => items.contains(x.item)),
+      result.failures.filter(x => items.contains(x.item)))
+  }
+
   def main(args: Array[String]): Unit = {
     if (args.length < 1) {
       println("Usage: Reactor /path/to/your/transport.xml")
@@ -90,7 +100,8 @@ class Reactor(val config: Config) {
       val targetSchema = target.getSchema(task.toCatalog, task.toSchema)
       val tables = filterTables(task.table, srcSchema, targetSchema)
       val views = filterViews(task.view, srcSchema, targetSchema)
-      val scanReport = new StageReport(s"scan ${task.fromSchema.value}", tables.size + views.size)
+      val taskName = s"${task.fromSchema.value} -> ${task.toSchema.value}"
+      val scanReport = new StageReport(s"scan $taskName", tables.size + views.size)
 
       val dataRange = config.dataRange
       val pairs = new LinkedBlockingQueue[Dataflow]
@@ -131,8 +142,13 @@ class Reactor(val config: Config) {
     }
 
     val dataResult = dataConverter.start()
-    results += dataResult
-    actionPrerequisites += dataResult
+    config.tasks foreach { task =>
+      val items = taskTables(task).map(_.target.qualifiedName).toSet
+      val taskName = s"${task.fromSchema.value} -> ${task.toSchema.value}"
+      val taskResult = Reactor.selectResult(s"copy $taskName", items, dataResult)
+      results += taskResult
+      actionPrerequisites += taskResult
+    }
 
     // Cleanup may have removed only part of a failed table's structure.
     // Best-effort recovery therefore attempts every selected key and index;
@@ -191,7 +207,7 @@ class Reactor(val config: Config) {
       executeActions(config.target, config.afterActions)
     } else if (config.afterActions.nonEmpty) {
       val failedStages = actionPrerequisites.filterNot(_.isSuccess).map(_.stage).mkString(", ")
-      SqlplusLogger.warn(s"Skip after actions because table synchronization failed: $failedStages")
+      SqlplusLogger.warn(s"Skip after actions because data synchronization failed: $failedStages")
     }
     results.foreach { result =>
       SqlplusLogger.info(

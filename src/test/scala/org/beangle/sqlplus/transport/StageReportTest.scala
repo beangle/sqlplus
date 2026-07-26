@@ -71,5 +71,22 @@ class StageReportTest extends AnyFunSpec with Matchers {
       Reactor.canExecuteAfterActions(Seq(tables)) shouldBe true
       indexFailure.isSuccess shouldBe false
     }
+
+    it("splits a shared table result into task summaries") {
+      val shared = StageResult(
+        "tables",
+        3,
+        Set("target.a", "target.b"),
+        0,
+        Seq(TransferFailure("other.c", "partial")),
+        Seq(TransferFailure("target.c", "failed")))
+
+      val task = Reactor.selectResult(
+        "copy source -> target", Set("target.a", "target.c"), shared)
+      task.total shouldBe 2
+      task.succeededItems shouldBe Set("target.a")
+      task.partials shouldBe empty
+      task.failures.map(_.item) shouldBe Seq("target.c")
+    }
   }
 }
