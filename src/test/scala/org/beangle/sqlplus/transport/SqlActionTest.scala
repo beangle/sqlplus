@@ -47,6 +47,28 @@ class SqlActionTest extends AnyFunSpec, Matchers {
       error.getMessage should include("adds LIMIT automatically")
     }
 
+    it("returns failure while continuing later best-effort statements") {
+      val ds = new JdbcDataSource
+      ds.setURL("jdbc:h2:mem:action_failure;DB_CLOSE_DELAY=-1")
+      val conn = ds.getConnection
+      try conn.createStatement().execute("create table action_result(id int primary key)")
+      finally conn.close()
+
+      val sql =
+        """insert into missing_table values(1);
+          |insert into action_result values(1);""".stripMargin
+      SqlAction.execute(ds, sql) shouldBe false
+
+      val verify = ds.getConnection
+      try {
+        val rs = verify.createStatement().executeQuery("select count(*) from action_result")
+        rs.next() shouldBe true
+        rs.getInt(1) shouldBe 1
+      } finally {
+        verify.close()
+      }
+    }
+
     it("repeats explicitly marked insert statements in committed batches") {
       val ds = new JdbcDataSource
       ds.setURL("jdbc:h2:mem:sql_action;DB_CLOSE_DELAY=-1")

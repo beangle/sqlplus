@@ -70,7 +70,10 @@ class Reactor(val config: Config) {
     val sw = new Stopwatch(true)
     val results = Collections.newBuffer[StageResult]
     val actionPrerequisites = Collections.newBuffer[StageResult]
-    executeActions(config.source, config.beforeActions)
+    if (!executeActions(config.source, config.beforeActions)) {
+      SqlplusLogger.error("Stop transport because before actions failed")
+      return false
+    }
 
     val source = new DefaultTableStore(config.source.dataSource, config.source.engine)
     val target = new DefaultTableStore(config.target.dataSource, config.target.engine)
@@ -207,8 +210,9 @@ class Reactor(val config: Config) {
     // Data transformations require complete source scans and table copies.
     // Key, index, constraint, and sequence failures remain reportable but do
     // not make the copied rows unusable for best-effort after actions.
+    var afterActionsSucceeded = true
     if (Reactor.canExecuteAfterActions(actionPrerequisites)) {
-      executeActions(config.target, config.afterActions)
+      afterActionsSucceeded = executeActions(config.target, config.afterActions)
     } else if (config.afterActions.nonEmpty) {
       val failedStages = actionPrerequisites.filterNot(_.isSuccess).map(_.stage).mkString(", ")
       SqlplusLogger.warn(s"Skip after actions because data synchronization failed: $failedStages")
@@ -236,7 +240,7 @@ class Reactor(val config: Config) {
       }
     }
     SqlplusLogger.info(s"transport complete using ${sw}")
-    results.forall(_.isSuccess)
+    results.forall(_.isSuccess) && afterActionsSucceeded
   }
 
   def close(): Unit = {
@@ -245,9 +249,10 @@ class Reactor(val config: Config) {
     DataSourceUtils.close(config.target.dataSource)
   }
 
-  private def executeActions(source: Source, actions: Iterable[ActionConfig]): Unit = {
+  private def executeActions(source: Source, actions: Iterable[ActionConfig]): Boolean = {
+    var success = true
     actions foreach { acf =>
-      acf.category match {
+      val actionSuccess = acf.category match {
         case "script" =>
           acf.contents match
             case Some(sqls) =>
@@ -259,10 +264,14 @@ class Reactor(val config: Config) {
                 require(f.exists(), "sql file:" + f.getAbsolutePath + " doesn't exists")
                 SqlplusLogger.info("execute sql scripts " + f.getAbsolutePath)
                 SqlAction.execute(source.dataSource, f)
-              }
-        case _ => SqlplusLogger.warn("Cannot support " + acf.category)
+              } else false
+        case _ =>
+          SqlplusLogger.warn("Cannot support " + acf.category)
+          false
       }
+      if (!actionSuccess) success = false
     }
+    success
   }
 
   private def filterTables(cfg: TableConfig, srcSchema: Schema, targetSchema: Schema): List[(Table, Table, Option[String])] = {

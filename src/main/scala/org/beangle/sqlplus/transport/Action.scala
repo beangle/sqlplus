@@ -46,11 +46,11 @@ object SqlAction {
     statements.map(x => x.replace('\r', '\n').trim).toList
   }
 
-  def execute(dataSource: DataSource, contents: String): Unit = {
+  def execute(dataSource: DataSource, contents: String): Boolean = {
     new SqlAction(dataSource, readSqls(contents)).process()
   }
 
-  def execute(dataSource: DataSource, file: File): Unit = {
+  def execute(dataSource: DataSource, file: File): Boolean = {
     new SqlAction(dataSource, readSqls(file)).process()
   }
 
@@ -91,11 +91,13 @@ class SqlAction(val dataSource: DataSource, sqls: Seq[String], passthrough: Bool
           case None =>
             comment = Strings.replace(comment, "--", "").trim()
             val sw = new Stopwatch(true)
-            val rs = executeSql(statement)
-            SqlplusLogger.info(comment + s" ${rs}, using ${sw}")
+            executeSql(statement) match {
+              case Some(rs) => SqlplusLogger.info(comment + s" ${rs}, using ${sw}")
+              case None => success = false
+            }
         }
       } else if (Strings.isNotBlank(s)) {
-        executeSql(s)
+        if (executeSql(s).isEmpty) success = false
       }
     }
     success
@@ -142,17 +144,17 @@ class SqlAction(val dataSource: DataSource, sqls: Seq[String], passthrough: Bool
     }
   }
 
-  private def executeSql(sql: String): Int = {
+  private def executeSql(sql: String): Option[Int] = {
     try {
       if !sql.toLowerCase.trim().startsWith("select") then
-        executor.update(sql)
-      else 0
+        Some(executor.update(sql))
+      else Some(0)
     } catch {
       case e: Exception =>
         if (!passthrough) throw e
         else {
           SqlplusLogger.error(s"execute ${sql} failed", e)
-          0
+          None
         }
     }
   }
