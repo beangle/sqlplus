@@ -88,5 +88,13 @@ class StageReportTest extends AnyFunSpec with Matchers {
       task.partials shouldBe empty
       task.failures.map(_.item) shouldBe Seq("target.c")
     }
+
+    it("hides internal scans from the final summary") {
+      val scan = StageResult("scan source -> target", 1, Set("source.a"), 0, Seq.empty, Seq.empty)
+      val copy = StageResult("copy source -> target", 1, Set("target.a"), 0, Seq.empty, Seq.empty)
+
+      Reactor.showInSummary(scan) shouldBe false
+      Reactor.showInSummary(copy) shouldBe true
+    }
   }
 }

@@ -39,6 +39,10 @@ object Reactor {
     results.forall(_.isSuccess)
   }
 
+  private[transport] def showInSummary(result: StageResult): Boolean = {
+    !result.stage.startsWith("scan ")
+  }
+
   private[transport] def selectResult(stage: String, items: Set[String], result: StageResult): StageResult = {
     StageResult(
       stage,
@@ -209,7 +213,10 @@ class Reactor(val config: Config) {
       val failedStages = actionPrerequisites.filterNot(_.isSuccess).map(_.stage).mkString(", ")
       SqlplusLogger.warn(s"Skip after actions because data synchronization failed: $failedStages")
     }
-    results.foreach { result =>
+    // Scan is an internal prerequisite. Its failures are logged when they
+    // occur and still affect the exit status, but repeating scan counts in
+    // the final summary obscures the per-task copy result.
+    results.filter(Reactor.showInSummary).foreach { result =>
       SqlplusLogger.info(
         s"${result.stage}: ${result.succeeded}/${result.total} succeeded, " +
           s"${result.partials.size} partial, ${result.skipped} skipped, ${result.failures.size} failed")
