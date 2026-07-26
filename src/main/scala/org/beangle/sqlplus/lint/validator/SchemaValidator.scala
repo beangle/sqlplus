@@ -17,7 +17,7 @@
 
 package org.beangle.sqlplus.lint.validator
 
-import org.beangle.commons.io.Files
+import org.beangle.commons.io.{Files, IOs}
 import org.beangle.commons.lang.Consoles.ColorText.{green, red}
 import org.beangle.commons.lang.Strings
 import org.beangle.commons.xml.Document
@@ -27,6 +27,7 @@ import org.beangle.jdbc.meta.{Database, Diff, MetadataLoader, Serializer}
 import org.beangle.sqlplus.util.EncryptDataSourceUtils
 
 import java.io.{File, FileInputStream}
+import java.sql.Connection
 
 object SchemaValidator {
 
@@ -49,19 +50,25 @@ object SchemaValidator {
     val basis = Serializer.fromXml(Files.readString(basisFile))
 
     val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
-    val engine = Engines.forDataSource(ds)
-
-    val database = new Database(engine)
-    val metaloader = MetadataLoader(ds.getConnection, engine)
-    basis.schemas foreach { s =>
-      val schema = database.getOrCreateSchema(s._1.value)
-      metaloader.loadTables(schema, true)
+    var conn: Connection = null
+    try {
+      val engine = Engines.forDataSource(ds)
+      val database = new Database(engine)
+      conn = ds.getConnection
+      val metaloader = MetadataLoader(conn, engine)
+      basis.schemas foreach { s =>
+        val schema = database.getOrCreateSchema(s._1.value)
+        metaloader.loadTables(schema, true)
+      }
+      val diff = Diff.diff(database, basis)
+      val sqls = Diff.sql(diff)
+      if (sqls.isEmpty) println(green("OK:") + "database and xml are coincident.")
+      else
+        println(red("WARN:") + "database and xml are NOT coincident, and Referential migration sql are listed blow:")
+        println(sqls.mkString(";\n"))
+    } finally {
+      IOs.close(conn)
+      DataSourceUtils.close(ds)
     }
-    val diff = Diff.diff(database, basis)
-    val sqls = Diff.sql(diff)
-    if (sqls.isEmpty) println(green("OK:") + "database and xml are coincident.")
-    else
-      println(red("WARN:") + "database and xml are NOT coincident, and Referential migration sql are listed blow:")
-      println(sqls.mkString(";\n"))
   }
 }

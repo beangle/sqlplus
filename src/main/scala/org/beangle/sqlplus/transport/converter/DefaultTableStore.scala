@@ -20,6 +20,7 @@ package org.beangle.sqlplus.transport.converter
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.io.IOs
 import org.beangle.commons.lang.Strings
+import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.jdbc.engine.Engine
 import org.beangle.jdbc.meta.*
 import org.beangle.jdbc.meta.Schema.NameFilter
@@ -43,13 +44,14 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
 
       if (!loadedSchemas.contains(schemaLiteralName)) {
         SqlplusLogger.info(s"loading ${schemaName.value} metas ...")
+        val sw = new Stopwatch(true)
         conn = dataSource.getConnection
         val loader = MetadataLoader(conn, engine)
         loader.loadBasics(database)
         loader.loadTables(schema, tableFilter, true)
         loader.loadViews(schema, viewFilter)
         loader.loadSequences(schema)
-        SqlplusLogger.info(s"find ${schema.tables.size} tables,${schema.views.size} views,${schema.sequences.size} sequences.")
+        SqlplusLogger.info(s"find ${schema.tables.size} tables,${schema.views.size} views,${schema.sequences.size} sequences in ${sw}.")
         loadedSchemas.addOne(schemaLiteralName)
       }
     } finally {

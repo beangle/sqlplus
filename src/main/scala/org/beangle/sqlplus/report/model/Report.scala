@@ -19,7 +19,7 @@ package org.beangle.sqlplus.report.model
 
 import org.beangle.commons.bean.Initializing
 import org.beangle.commons.collection.Collections
-import org.beangle.commons.io.Files
+import org.beangle.commons.io.{Files, IOs}
 import org.beangle.commons.lang.Strings
 import org.beangle.commons.xml.{Document, Node}
 import org.beangle.jdbc.ds.{DataSourceFactory, DataSourceUtils}
@@ -30,6 +30,7 @@ import org.beangle.sqlplus.report.model.Schema as ReportSchema
 import org.beangle.sqlplus.util.EncryptDataSourceUtils
 
 import java.io.File
+import java.sql.Connection
 
 object Report {
 
@@ -44,11 +45,17 @@ object Report {
       val ds = DataSourceFactory.build(dbconf.driver, dbconf.user, dbconf.password, dbconf.props)
       val schema = new Schema(database, database.engine.toIdentifier((dbElem \ "@schema").text))
 
-      val conn = ds.getConnection()
-      val loader = MetadataLoader(conn, Engines.forDataSource(ds))
-      loader.loadTables(schema, extras = true)
-      loader.loadSequences(schema)
-      DataSourceUtils.close(ds)
+      var conn: Connection = null
+      try {
+        conn = ds.getConnection()
+        val loader = MetadataLoader(conn, Engines.forDataSource(ds))
+        loader.loadTables(schema, extras = true)
+        loader.loadSequences(schema)
+      } finally {
+        // Return the borrowed connection before shutting down its pool.
+        IOs.close(conn)
+        DataSourceUtils.close(ds)
+      }
     } else {
       val databaseXml = (xml \ "database" \ "@xml").text
       database = Serializer.fromXml(Files.readString(Files.forName(dir, databaseXml)))

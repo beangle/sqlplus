@@ -29,9 +29,15 @@ import org.beangle.sqlplus.transport.Config.*
 import org.beangle.sqlplus.transport.converter.*
 
 import java.io.{File, FileInputStream}
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.{Executors, LinkedBlockingQueue}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object Reactor {
+
+  private[transport] def canExecuteAfterActions(results: Iterable[StageResult]): Boolean = {
+    results.forall(_.isSuccess)
+  }
 
   def main(args: Array[String]): Unit = {
     if (args.length < 1) {
@@ -49,18 +55,31 @@ class Reactor(val config: Config) {
   def start(): Boolean = {
     val sw = new Stopwatch(true)
     val results = Collections.newBuffer[StageResult]
+    val actionPrerequisites = Collections.newBuffer[StageResult]
     executeActions(config.source, config.beforeActions)
 
     val source = new DefaultTableStore(config.source.dataSource, config.source.engine)
     val target = new DefaultTableStore(config.target.dataSource, config.target.engine)
     val allFilter = new NameFilter()
     allFilter.include("*")
-    config.tasks foreach { task =>
-      source.loadMetas(task.fromCatalog, task.fromSchema, task.table.buildNameFilter(), task.view.buildNameFilter())
-      //we should load all target object ignore src filter
-      //case 1: exclude all table,just transport view.so we need load target table
-      target.loadMetas(task.toCatalog, task.toSchema, allFilter, allFilter)
-      target.createSchema(task.toSchema)
+    val metadataExecutionContext = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(2))
+    try {
+      config.tasks foreach { task =>
+        // Source and target metadata are independent and can be loaded concurrently.
+        // Keep tasks sequential because each store mutates its in-memory Database model.
+        val sourceLoading = Future {
+          source.loadMetas(
+            task.fromCatalog, task.fromSchema, task.table.buildNameFilter(), task.view.buildNameFilter())
+        }(metadataExecutionContext)
+        val targetLoading = Future {
+          // Load every target object: a view-only task may still replace an existing table.
+          target.loadMetas(task.toCatalog, task.toSchema, allFilter, allFilter)
+          target.createSchema(task.toSchema)
+        }(metadataExecutionContext)
+        Await.result(sourceLoading.zip(targetLoading), Duration.Inf)
+      }
+    } finally {
+      metadataExecutionContext.shutdown()
     }
 
     val dataConverter = new TableConverter(source, target, config.maxthreads, config.bulkSize)
@@ -103,7 +122,9 @@ class Reactor(val config: Config) {
             SqlplusLogger.error(s"Scan view ${p._1.qualifiedName} failed", e)
         }
       }
-      results += scanReport.result
+      val scanResult = scanReport.result
+      results += scanResult
+      actionPrerequisites += scanResult
       import scala.jdk.CollectionConverters.*
       taskTables.put(task, pairs.asScala)
       dataConverter.add(pairs.asScala)
@@ -111,6 +132,7 @@ class Reactor(val config: Config) {
 
     val dataResult = dataConverter.start()
     results += dataResult
+    actionPrerequisites += dataResult
 
     // Cleanup may have removed only part of a failed table's structure.
     // Best-effort recovery therefore attempts every selected key and index;
@@ -162,7 +184,15 @@ class Reactor(val config: Config) {
     }
     if sequenceConverter.payloadCount > 0 then results += sequenceConverter.start()
 
-    executeActions(config.target, config.afterActions)
+    // Data transformations require complete source scans and table copies.
+    // Key, index, constraint, and sequence failures remain reportable but do
+    // not make the copied rows unusable for best-effort after actions.
+    if (Reactor.canExecuteAfterActions(actionPrerequisites)) {
+      executeActions(config.target, config.afterActions)
+    } else if (config.afterActions.nonEmpty) {
+      val failedStages = actionPrerequisites.filterNot(_.isSuccess).map(_.stage).mkString(", ")
+      SqlplusLogger.warn(s"Skip after actions because table synchronization failed: $failedStages")
+    }
     results.foreach { result =>
       SqlplusLogger.info(
         s"${result.stage}: ${result.succeeded}/${result.total} succeeded, " +

@@ -160,7 +160,7 @@ Edit config file (oracle to postgresql etc.)
   </target>
 
   <task from="user" to="user">
-    <tables lowcase="true" index="true" constraint="true">
+    <tables to-case="lower" index="true" constraint="true" unlogged="true">
       <includes>*</includes>
       <excludes></excludes>
     </tables>
@@ -177,8 +177,57 @@ Edit config file (oracle to postgresql etc.)
 </transport>
 ```
 
+Large convergent `INSERT ... SELECT` actions can opt into committed batches with
+an sqlplus directive. Sqlplus appends the configured `LIMIT` automatically, and
+rows inserted by one batch must no longer be selected by the next batch:
+
+```sql
+-- @loop batch-size=10000 max-batches=500 import edu.course_takers
+insert into edu.course_takers(id, clazz_id)
+select ct.id, ct.lesson_id
+from jw.course_takers ct
+where not exists (
+  select 1 from edu.course_takers t where t.id = ct.id
+);
+```
+
+Each batch is committed separately. Processing stops when a batch affects fewer
+than `batch-size` rows. `batch-size` defaults to 100000, while `max-batches`
+defaults to 50 and prevents a non-convergent statement from looping forever.
+Do not use this directive when the inserted rows remain eligible for the next
+execution. Loop statements must not contain `LIMIT`, `ON CONFLICT`, or
+`RETURNING`.
+
 Run with:
 
 ```bash
 ./sqlplus.sh transport /path/to/your.xml
 ```
+
+### PostgreSQL unlogged target tables
+
+For PostgreSQL targets, set `unlogged="true"` on a task's `tables` element to
+create the selected target tables as `UNLOGGED`:
+
+```xml
+<task from="USER" to="user">
+  <tables unlogged="true" index="true" constraint="true">
+    <includes>*</includes>
+  </tables>
+</task>
+```
+
+The option defaults to `false`. It is part of the desired target schema, not a
+temporary loading optimization:
+
+- A missing target table is created with `CREATE UNLOGGED TABLE`.
+- An existing logged table differs from the requested target structure and is
+  dropped and recreated as unlogged.
+- The table remains unlogged after transport; sqlplus does not run
+  `ALTER TABLE ... SET LOGGED`.
+- Indexes created on the table follow PostgreSQL's unlogged-table behavior.
+
+Use this option only when the final table is intentionally unlogged. PostgreSQL
+does not write unlogged-table changes to WAL: the table is not crash-safe, may
+be truncated after an unclean shutdown, and is not replicated to standby
+servers.

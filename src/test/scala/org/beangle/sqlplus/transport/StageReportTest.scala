@@ -49,5 +49,27 @@ class StageReportTest extends AnyFunSpec with Matchers {
       result.failures shouldBe empty
       result.isSuccess shouldBe false
     }
+
+    it("prevents after actions when a required table stage is partial or failed") {
+      val success = StageResult("tables", 1, Set("table_a"), 0, Seq.empty, Seq.empty)
+      val partial = StageResult(
+        "tables", 1, Set.empty, 0, Seq(TransferFailure("table_a", "partial")), Seq.empty)
+      val scanFailure = StageResult(
+        "scan source", 1, Set.empty, 0, Seq.empty, Seq(TransferFailure("table_a", "failed")))
+
+      Reactor.canExecuteAfterActions(Seq(success)) shouldBe true
+      Reactor.canExecuteAfterActions(Seq(success, partial)) shouldBe false
+      Reactor.canExecuteAfterActions(Seq(success, scanFailure)) shouldBe false
+    }
+
+    it("allows after actions when only a non-table stage failed") {
+      val tables = StageResult("tables", 1, Set("table_a"), 0, Seq.empty, Seq.empty)
+      val indexFailure = StageResult(
+        "indexes", 1, Set.empty, 0, Seq.empty, Seq(TransferFailure("index_a", "failed")))
+
+      // Reactor passes only scan and table results as action prerequisites.
+      Reactor.canExecuteAfterActions(Seq(tables)) shouldBe true
+      indexFailure.isSuccess shouldBe false
+    }
   }
 }
