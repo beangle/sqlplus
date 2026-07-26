@@ -1,0 +1,53 @@
+/*
+ * Copyright (C) 2005, The Beangle Software.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.beangle.sqlplus.transport
+
+import org.beangle.commons.concurrent.Workers
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
+
+class StageReportTest extends AnyFunSpec with Matchers {
+
+  describe("StageReport") {
+    it("collects concurrent best-effort results") {
+      val report = new StageReport("tables", 100)
+      Workers.workOn(1 to 100, 4) { i =>
+        if i % 10 == 0 then report.failed(s"table_$i", "test failure")
+        else report.succeeded(s"table_$i")
+      }
+
+      val result = report.result
+      result.succeeded shouldBe 90
+      result.skipped shouldBe 0
+      result.failures should have size 10
+      result.isSuccess shouldBe false
+    }
+
+    it("distinguishes partial transfers from failures") {
+      val report = new StageReport("tables", 1)
+      report.partial("PUBLIC.ORDERS", new RuntimeException("connection lost"), 50000, 120000)
+
+      val result = report.result
+      result.partials should have size 1
+      result.partials.head.transferredRows shouldBe Some(50000)
+      result.partials.head.expectedRows shouldBe Some(120000)
+      result.failures shouldBe empty
+      result.isSuccess shouldBe false
+    }
+  }
+}

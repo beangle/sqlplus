@@ -21,7 +21,7 @@ import org.beangle.commons.collection.Collections
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.jdbc.meta.Sequence
 import org.beangle.sqlplus.SqlplusLogger
-import org.beangle.sqlplus.transport.Converter
+import org.beangle.sqlplus.transport.{Converter, StageReport, StageResult}
 
 class SequenceConverter(val target: DefaultTableStore) extends Converter {
 
@@ -37,35 +37,35 @@ class SequenceConverter(val target: DefaultTableStore) extends Converter {
 
   }
 
-  private def reCreate(sequence: Sequence): Boolean = {
-    if (target.drop(sequence)) {
-      if (target.create(sequence)) {
-        SqlplusLogger.info(s"Recreate sequence ${sequence.qualifiedName}")
-        return true
-      } else {
-        SqlplusLogger.error(s"Recreate sequence ${sequence.qualifiedName} failure.")
-      }
-    }
-    false
+  private def reCreate(sequence: Sequence): Unit = {
+    target.drop(sequence)
+    target.create(sequence)
+    SqlplusLogger.info(s"Recreate sequence ${sequence.qualifiedName}")
   }
 
-  def start(): Boolean = {
+  def start(): StageResult = {
     val targetEngine = target.engine
+    val report = new StageReport("sequences", sequenceMap.size)
     if (!targetEngine.supportSequence) {
       SqlplusLogger.info(s"Target database ${targetEngine.getClass.getSimpleName} doesn't support sequence,replication omitted.")
-      return true
+      sequenceMap.values.foreach(_ => report.skipped())
+      return report.result
     }
     val watch = new Stopwatch(true)
     val sequences = sequenceMap.values
     SqlplusLogger.info("Start sequence replication...")
-    var success = true
     for (sequence <- sequences) {
-      if (!reCreate(sequence)) {
-        success = false
+      try {
+        reCreate(sequence)
+        report.succeeded(sequence.qualifiedName)
+      } catch {
+        case e: Exception =>
+          report.failed(sequence.qualifiedName, e)
+          SqlplusLogger.error(s"Recreate sequence ${sequence.qualifiedName} failed", e)
       }
     }
     SqlplusLogger.info(s"End ${sequences.size} sequence replication,using $watch")
-    success
+    report.result
   }
 
 }

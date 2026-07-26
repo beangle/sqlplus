@@ -27,7 +27,7 @@ import org.beangle.jdbc.query.{JdbcExecutor, ResultSetIterator}
 import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.transport.TableStore
 
-import java.sql.Connection
+import java.sql.{Connection, SQLException}
 import javax.sql.DataSource
 
 class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends TableStore {
@@ -80,7 +80,7 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
     getSchema(table).getTable(table.name.value)
   }
 
-  override def clean(table: Table): Boolean = {
+  override def clean(table: Table): Unit = {
     get(table) match {
       case None => create(table)
       case Some(t) =>
@@ -91,7 +91,6 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
         }
     }
     getSchema(table).addTable(table)
-    true
   }
 
   override def cleanForeignKeys(table: Table): Unit = {
@@ -102,7 +101,8 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
         try {
           executor.update(engine.alterTable(table).dropConstraint(fk.literalName))
         } catch {
-          case e: Throwable => //may be cascade drop by other table.
+          // A previous cascading drop may already have removed this key.
+          case _: SQLException =>
         }
         SqlplusLogger.debug(s"Drop foreign key ${fk.literalName} on ${table.qualifiedName}.")
       }
@@ -110,107 +110,68 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
   }
 
   private def cleanSelfKeys(table: Table): Unit = {
-    try
-      getSchema(table).getTable(table.name.value) foreach { t =>
-        t.primaryKey foreach { pk =>
-          executor.update(engine.alterTable(t).dropPrimaryKey(pk))
-          SqlplusLogger.debug(s"Drop primary key ${table.qualifiedName}.${pk.literalName}")
-        }
-        t.uniqueKeys foreach { uk =>
-          executor.update(engine.alterTable(table).dropConstraint(uk.literalName))
-          SqlplusLogger.debug(s"Drop unique key ${uk.literalName} on ${table.qualifiedName}.")
-        }
-        t.indexes foreach { i =>
-          try {
-            executor.update(engine.dropIndex(i))
-          } catch {
-            case e: Throwable => //may be cascade drop by other foreign keys.
-          }
-          SqlplusLogger.debug(s"Drop index ${i.literalName} on ${table.qualifiedName}.")
-        }
+    getSchema(table).getTable(table.name.value) foreach { t =>
+      t.primaryKey foreach { pk =>
+        executor.update(engine.alterTable(t).dropPrimaryKey(pk))
+        SqlplusLogger.debug(s"Drop primary key ${table.qualifiedName}.${pk.literalName}")
       }
-      SqlplusLogger.debug(s"Clean table ${table.qualifiedName}'s keys and constraints")
-    catch
-      case e: Exception => SqlplusLogger.error(s"Clean table ${table.name} 's keys failed", e)
-  }
-
-  override def truncate(table: Table): Boolean = {
-    try
-      getSchema(table).getTable(table.name.value) foreach { t =>
-        executor.update(engine.truncate(t))
+      t.uniqueKeys foreach { uk =>
+        executor.update(engine.alterTable(table).dropConstraint(uk.literalName))
+        SqlplusLogger.debug(s"Drop unique key ${uk.literalName} on ${table.qualifiedName}.")
       }
-      true
-    catch
-      case e: Exception =>
-        SqlplusLogger.error(s"Truncate table ${table.name} failed", e)
-        false
-  }
-
-  override def drop(table: Table): Boolean = {
-    try
-      val schema = getSchema(table)
-      schema.getTable(table.name.value) foreach { t =>
-        schema.tables.remove(t.name)
-        executor.update(engine.dropTable(t.qualifiedName))
-        SqlplusLogger.info(s"Drop table ${table.name}")
+      t.indexes foreach { i =>
+        try {
+          executor.update(engine.dropIndex(i))
+        } catch {
+          // Some engines drop the backing index together with its constraint.
+          case _: SQLException =>
+        }
+        SqlplusLogger.debug(s"Drop index ${i.literalName} on ${table.qualifiedName}.")
       }
-      true
-    catch
-      case e: Exception =>
-        SqlplusLogger.error(s"Drop table ${table.name} failed", e)
-        false
-  }
-
-  override def create(table: Table): Boolean = {
-    if (getSchema(table).getTable(table.name.value).isEmpty) {
-      try
-        executor.update(engine.createTable(table))
-        SqlplusLogger.info(s"Create table ${table.name}")
-      catch
-        case e: Exception =>
-          SqlplusLogger.error(s"Cannot create table ${table.name}", e)
-          return false
     }
-    true
+    SqlplusLogger.debug(s"Clean table ${table.qualifiedName}'s keys and constraints")
   }
 
-  def drop(sequence: Sequence): Boolean = {
+  override def truncate(table: Table): Unit = {
+    getSchema(table).getTable(table.name.value) match {
+      case Some(t) => executor.update(engine.truncate(t))
+      case None => throw new IllegalStateException(s"Cannot find target table ${table.qualifiedName}")
+    }
+  }
+
+  override def drop(table: Table): Unit = {
+    val schema = getSchema(table)
+    schema.getTable(table.name.value) foreach { t =>
+      executor.update(engine.dropTable(t.qualifiedName))
+      schema.tables.remove(t.name)
+      SqlplusLogger.info(s"Drop table ${table.name}")
+    }
+  }
+
+  override def create(table: Table): Unit = {
+    if (getSchema(table).getTable(table.name.value).isEmpty) {
+      executor.update(engine.createTable(table))
+      SqlplusLogger.info(s"Create table ${table.name}")
+    }
+  }
+
+  def drop(sequence: Sequence): Unit = {
     val schema = getSchema(sequence.schema.catalog, sequence.schema.name)
     val exists = schema.sequences.contains(sequence)
     if (exists) {
+      val dropSql = engine.dropSequence(sequence)
+      if (null != dropSql) executor.update(dropSql)
       schema.sequences.remove(sequence)
-      try {
-        val dropSql = engine.dropSequence(sequence)
-        if (null != dropSql) executor.update(dropSql)
-      } catch {
-        case e: Exception =>
-          SqlplusLogger.error(s"Drop sequence ${sequence.name} failed", e)
-          return false
-      }
     }
-    true
   }
 
-  def create(sequence: Sequence): Boolean = {
-    try {
-      val createSql = engine.createSequence(sequence)
-      if (null != createSql) executor.update(createSql)
-      true
-    } catch {
-      case e: Exception =>
-        SqlplusLogger.error(s"cannot create sequence ${sequence.name}", e)
-        false
-    }
+  def create(sequence: Sequence): Unit = {
+    val createSql = engine.createSequence(sequence)
+    if (null != createSql) executor.update(createSql)
   }
 
   override def count(table: Relation, where: Option[String]): Int = {
-    try
-      executor.queryForInt(buildQueryString(table, where, true)).get
-    catch
-      case e: Exception =>
-        SqlplusLogger.error(buildQueryString(table, where, true))
-        e.printStackTrace()
-        0
+    executor.queryForInt(buildQueryString(table, where, true)).get
   }
 
   override def select(r: Relation, where: Option[String]): ResultSetIterator = {

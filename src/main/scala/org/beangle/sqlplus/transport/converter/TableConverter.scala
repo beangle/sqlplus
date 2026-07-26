@@ -20,12 +20,16 @@ package org.beangle.sqlplus.transport.converter
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
-import org.beangle.jdbc.meta.{Constraint, PrimaryKey, Table}
+import org.beangle.jdbc.meta.{PrimaryKey, Table}
 import org.beangle.sqlplus.SqlplusLogger
-import org.beangle.sqlplus.transport.{Converter, Dataflow, TableStore}
+import org.beangle.sqlplus.transport.{Converter, Dataflow, StageReport, StageResult, TableStore}
 
+import java.util.concurrent.ConcurrentHashMap
 object TableConverter {
   val zero = '\u0000'
+
+  class TransferException(val transferredRows: Long, val expectedRows: Long, cause: Throwable)
+    extends RuntimeException(Option(cause.getMessage).getOrElse(cause.getClass.getSimpleName), cause)
 
   /** remove zero char in string
    *
@@ -75,17 +79,15 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
     tablesMap.values.flatten(_.target.primaryKey).toList
   }
 
-  def constraints: List[Constraint] = {
-    tablesMap.values.flatten(_.target.foreignKeys).toList
-  }
-
   def reset(): Unit = {
   }
 
-  def start(): Boolean = {
+  def start(): StageResult = {
     val watch = new Stopwatch(true)
     val flows = tablesMap.values.toBuffer.sortBy(_.total).reverse
     val tableCount = flows.length
+    val report = new StageReport("tables", tableCount)
+    val unavailable = ConcurrentHashMap.newKeySet[String]()
 
     //clean all table foreign keys
     Workers.workOn(flows, threads) { p =>
@@ -94,52 +96,77 @@ class TableConverter(val source: TableStore, val target: TableStore, val threads
 
     //prepare and recreate table when necessary,don't clean data
     Workers.workOn(flows, threads) { p =>
-      target.clean(p.target)
+      try {
+        target.clean(p.target)
+      } catch {
+        case e: Exception =>
+          unavailable.add(p.target.qualifiedName)
+          report.failed(p.target.qualifiedName, e)
+          SqlplusLogger.error(s"Prepare table ${p.target.qualifiedName} failed", e)
+      }
     }
 
     SqlplusLogger.info(s"Start $tableCount tables data replication in $threads threads...")
     //按照数量降序进行同步，数据量越大的，越早开始
-    val convertFailed = Workers.workOn(flows, threads) { flow =>
-      convert(flow)
+    Workers.workOn(flows, threads) { flow =>
+      if (!unavailable.contains(flow.target.qualifiedName)) {
+        try {
+          convert(flow)
+          report.succeeded(flow.target.qualifiedName)
+        } catch {
+          // Each save commits one batch. A later failure therefore leaves a
+          // partial target table and must retain the last committed row count.
+          case e: TableConverter.TransferException =>
+            if e.transferredRows > 0 then
+              report.partial(flow.target.qualifiedName, e, e.transferredRows, e.expectedRows)
+            else
+              report.failed(flow.target.qualifiedName, e, e.transferredRows, e.expectedRows)
+            SqlplusLogger.error(
+              s"Insert error ${flow.target.qualifiedName} after ${e.transferredRows}/${e.expectedRows} rows", e)
+          case e: Exception =>
+            report.failed(flow.target.qualifiedName, e)
+            SqlplusLogger.error(s"Insert error ${flow.target.qualifiedName}", e)
+        }
+      }
     }
     SqlplusLogger.info(s"Finish $tableCount tables data replication,using $watch")
-    convertFailed == 0
+    report.result
   }
 
   def convert(pair: Dataflow): Unit = {
     val targetTable = pair.target
+    var committed = 0
     try {
       target.truncate(targetTable)
 
-      if (pair.total == 0) {
-        target.save(targetTable, List.empty)
-        SqlplusLogger.info(s"Insert $targetTable(0)")
-      } else {
-        val dataIter = source.select(pair.src, pair.where)
-        var data = Collections.newBuffer[Array[Any]]
-        var finished = 0
-        var batchIndex = 0
-        try {
-          while (dataIter.hasNext) {
-            data += dataIter.next()
-            finished += 1
-            if (finished % bulkSize == 0) {
-              insert(targetTable, data, finished, pair.total, batchIndex)
-              batchIndex += 1
-              data = Collections.newBuffer[Array[Any]]
-            }
-          }
-          if (data.nonEmpty) {
+      val dataIter = source.select(pair.src, pair.where)
+      var data = Collections.newBuffer[Array[Any]]
+      var finished = 0
+      var batchIndex = 0
+      try {
+        while (dataIter.hasNext) {
+          data += dataIter.next()
+          finished += 1
+          if (finished % bulkSize == 0) {
             insert(targetTable, data, finished, pair.total, batchIndex)
+            committed = finished
+            batchIndex += 1
+            data = Collections.newBuffer[Array[Any]]
           }
-        } catch {
-          case e: Exception => SqlplusLogger.error(s"Insert error ${targetTable.qualifiedName}", e)
-        } finally {
-          dataIter.close()
         }
+        if (data.nonEmpty) {
+          insert(targetTable, data, finished, pair.total, batchIndex)
+          committed = finished
+        }
+      } finally {
+        dataIter.close()
       }
+      if (committed != pair.total) {
+        throw new IllegalStateException(s"Source row count changed from ${pair.total} to $committed")
+      }
+      SqlplusLogger.info(s"Insert $targetTable($committed)")
     } catch {
-      case e: Exception => SqlplusLogger.error(s"Insert error ${targetTable.qualifiedName}", e)
+      case e: Exception => throw new TableConverter.TransferException(committed, pair.total, e)
     }
   }
 

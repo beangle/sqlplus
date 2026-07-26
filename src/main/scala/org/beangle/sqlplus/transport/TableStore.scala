@@ -32,17 +32,21 @@ trait TableStore {
    * @param table
    * @return
    */
-  def clean(table: Table): Boolean
+  /** Prepares a target table for loading.
+   * DDL errors propagate to the worker, which records the failure and continues
+   * with other tables.
+   */
+  def clean(table: Table): Unit
 
   def cleanForeignKeys(table: Table): Unit
 
   def has(table: Table): Boolean
 
-  def truncate(table: Table): Boolean
+  def truncate(table: Table): Unit
 
-  def drop(table: Table): Boolean
+  def drop(table: Table): Unit
 
-  def create(table: Table): Boolean
+  def create(table: Table): Unit
 
   def save(table: Table, datas: collection.Seq[Array[_]]): Int
 

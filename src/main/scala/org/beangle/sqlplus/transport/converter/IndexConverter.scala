@@ -22,7 +22,7 @@ import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.jdbc.meta.Index
 import org.beangle.sqlplus.SqlplusLogger
-import org.beangle.sqlplus.transport.Converter
+import org.beangle.sqlplus.transport.{Converter, StageReport, StageResult}
 
 class IndexConverter(val target: DefaultTableStore, val threads: Int) extends Converter {
 
@@ -31,27 +31,31 @@ class IndexConverter(val target: DefaultTableStore, val threads: Int) extends Co
   override def payloadCount: Int = idxMap.size
 
   def add(indxes: Iterable[Index]): Unit = {
-    indxes.foreach(x => idxMap.put(x.literalName, x))
+    indxes.foreach(x => idxMap.put(s"${x.table.qualifiedName}.${x.literalName}", x))
   }
 
   def reset(): Unit = {
   }
 
-  def start(): Boolean = {
+  def start(): StageResult = {
     val indexes = idxMap.values
     val indexCount = indexes.size
+    val report = new StageReport("indexes", indexCount)
     SqlplusLogger.info(s"Start $indexCount indexes replication in $threads threads...")
     val watch = new Stopwatch(true)
-    val failed = Workers.workOn(indexes, threads) { index =>
+    Workers.workOn(indexes, threads) { index =>
       try {
         target.executor.update(target.engine.createIndex(index))
+        report.succeeded(s"${index.table.qualifiedName}.${index.literalName}")
         SqlplusLogger.info(s"Create index ${index.name}")
       } catch {
-        case e: Exception => SqlplusLogger.error(s"Cannot create index ${index.name}", e)
+        case e: Exception =>
+          report.failed(s"${index.table.qualifiedName}.${index.literalName}", e)
+          SqlplusLogger.error(s"Cannot create index ${index.name}", e)
       }
     }
     SqlplusLogger.info(s"Finish $indexCount indexes replication,using $watch")
-    failed == 0
+    report.result
   }
 
 }

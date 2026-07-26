@@ -22,14 +22,14 @@ import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
 import org.beangle.jdbc.meta.PrimaryKey
 import org.beangle.sqlplus.SqlplusLogger
-import org.beangle.sqlplus.transport.Converter
+import org.beangle.sqlplus.transport.{Converter, StageReport, StageResult}
 
 class PrimaryKeyConverter(val target: DefaultTableStore, threads: Int) extends Converter {
 
   private val primaryKeyMap = Collections.newMap[String, PrimaryKey]
 
   def add(newPks: Iterable[PrimaryKey]): Unit = {
-    newPks.foreach { pk => primaryKeyMap.put(pk.literalName, pk) }
+    newPks.foreach { pk => primaryKeyMap.put(s"${pk.table.qualifiedName}.${pk.literalName}", pk) }
   }
 
   override def payloadCount: Int = primaryKeyMap.size
@@ -37,17 +37,25 @@ class PrimaryKeyConverter(val target: DefaultTableStore, threads: Int) extends C
   def reset(): Unit = {
   }
 
-  def start(): Boolean = {
+  def start(): StageResult = {
     val watch = new Stopwatch(true)
     val pks = primaryKeyMap.values
+    val report = new StageReport("primary keys", pks.size)
     SqlplusLogger.info(s"Start ${pks.size} primary keys replication in $threads threads...")
-    val failed = Workers.workOn(pks, threads) { pk =>
-      val sql = target.engine.alterTable(pk.table).addPrimaryKey(pk)
-      target.executor.update(sql)
-      SqlplusLogger.info(s"Apply ${pk.name}(${pk.table.qualifiedName})")
+    Workers.workOn(pks, threads) { pk =>
+      try {
+        val sql = target.engine.alterTable(pk.table).addPrimaryKey(pk)
+        target.executor.update(sql)
+        report.succeeded(s"${pk.table.qualifiedName}.${pk.literalName}")
+        SqlplusLogger.info(s"Apply ${pk.name}(${pk.table.qualifiedName})")
+      } catch {
+        case e: Exception =>
+          report.failed(s"${pk.table.qualifiedName}.${pk.literalName}", e)
+          SqlplusLogger.error(s"Cannot apply primary key ${pk.literalName}", e)
+      }
     }
     SqlplusLogger.info(s"Finish ${pks.size} primary keys replication,using $watch")
-    failed == 0
+    report.result
   }
 
 }

@@ -20,47 +20,44 @@ package org.beangle.sqlplus.transport.converter
 import org.beangle.commons.collection.Collections
 import org.beangle.commons.concurrent.Workers
 import org.beangle.commons.lang.time.Stopwatch
-import org.beangle.jdbc.meta.ForeignKey
+import org.beangle.jdbc.meta.UniqueKey
 import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.transport.{Converter, StageReport, StageResult}
 
-class ConstraintConverter(val target: DefaultTableStore, val threads: Int) extends Converter {
+/** Restores unique keys before foreign keys that may reference them. */
+class UniqueKeyConverter(val target: DefaultTableStore, val threads: Int) extends Converter {
 
-  private val constraintMap = Collections.newMap[String, ForeignKey]
+  private val uniqueKeyMap = Collections.newMap[String, UniqueKey]
 
-  override def payloadCount: Int = constraintMap.size
+  override def payloadCount: Int = uniqueKeyMap.size
 
-  def add(foreignKeys: Iterable[ForeignKey]): Unit = {
-    foreignKeys.foreach { fk =>
-      constraintMap.put(s"${fk.table.qualifiedName}.${fk.literalName}", fk)
+  def add(uniqueKeys: Iterable[UniqueKey]): Unit = {
+    uniqueKeys.foreach { uk =>
+      uniqueKeyMap.put(s"${uk.table.qualifiedName}.${uk.literalName}", uk)
     }
   }
 
-  def reset(): Unit = {
+  override def reset(): Unit = uniqueKeyMap.clear()
 
-  }
-
-  def start(): StageResult = {
-    val constraints = constraintMap.values
-    val cnt = constraints.size
-    val report = new StageReport("constraints", cnt)
+  override def start(): StageResult = {
+    val uniqueKeys = uniqueKeyMap.values
+    val report = new StageReport("unique keys", uniqueKeys.size)
     val watch = new Stopwatch(true)
-    SqlplusLogger.info(s"Start $cnt constraints replication in $threads threads...")
-
-    Workers.workOn(constraints, threads) { fk =>
-      val item = s"${fk.table.qualifiedName}.${fk.literalName}"
-      val sql = target.engine.alterTable(fk.table).addForeignKey(fk)
+    SqlplusLogger.info(s"Start ${uniqueKeys.size} unique keys replication in $threads threads...")
+    Workers.workOn(uniqueKeys, threads) { uk =>
+      val item = s"${uk.table.qualifiedName}.${uk.literalName}"
+      val sql = target.engine.alterTable(uk.table).addUnique(uk)
       try {
         target.executor.update(sql)
         report.succeeded(item)
-        SqlplusLogger.info(s"Apply constraint ${fk.name}")
+        SqlplusLogger.info(s"Apply unique key ${uk.name}")
       } catch {
         case e: Exception =>
           report.failed(item, e)
           SqlplusLogger.warn(s"Cannot execute $sql")
       }
     }
-    SqlplusLogger.info(s"Finish $cnt constraints replication,using $watch")
+    SqlplusLogger.info(s"Finish ${uniqueKeys.size} unique keys replication,using $watch")
     report.result
   }
 }

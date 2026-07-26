@@ -40,8 +40,7 @@ object Reactor {
     }
     val workdir = new File(args(0)).getAbsoluteFile.getParent
     val reactor = new Reactor(Config(workdir, new FileInputStream(args(0))))
-    val success = reactor.start()
-    reactor.close()
+    val success = try reactor.start() finally reactor.close()
     System.exit(if success then 0 else 1)
   }
 }
@@ -49,14 +48,11 @@ object Reactor {
 class Reactor(val config: Config) {
   def start(): Boolean = {
     val sw = new Stopwatch(true)
-    var success = true
+    val results = Collections.newBuffer[StageResult]
     executeActions(config.source, config.beforeActions)
-
-    val converters = new collection.mutable.ListBuffer[Converter]
 
     val source = new DefaultTableStore(config.source.dataSource, config.source.engine)
     val target = new DefaultTableStore(config.target.dataSource, config.target.engine)
-    val ds = config.target.dataSource
     val allFilter = new NameFilter()
     allFilter.include("*")
     config.tasks foreach { task =>
@@ -75,37 +71,55 @@ class Reactor(val config: Config) {
       val targetSchema = target.getSchema(task.toCatalog, task.toSchema)
       val tables = filterTables(task.table, srcSchema, targetSchema)
       val views = filterViews(task.view, srcSchema, targetSchema)
+      val scanReport = new StageReport(s"scan ${task.fromSchema.value}", tables.size + views.size)
 
       val dataRange = config.dataRange
       val pairs = new LinkedBlockingQueue[Dataflow]
-      val faileTableCnt = Workers.workOn(tables, config.maxthreads) { p =>
-        val where = task.table.getWhere(p._1)
-        val total = source.count(p._1, where)
-        if (dataRange._1 <= total && total <= dataRange._2) {
-          pairs.add(Dataflow(p._1, p._2, where, total))
+      Workers.workOn(tables, config.maxthreads) { p =>
+        try {
+          val where = task.table.getWhere(p._1)
+          val total = source.count(p._1, where)
+          if (dataRange._1 <= total && total <= dataRange._2) {
+            pairs.add(Dataflow(p._1, p._2, where, total))
+          }
+          scanReport.succeeded(p._1.qualifiedName)
+        } catch {
+          case e: Exception =>
+            scanReport.failed(p._1.qualifiedName, e)
+            SqlplusLogger.error(s"Scan table ${p._1.qualifiedName} failed", e)
         }
       }
-      success = success && faileTableCnt == 0
-      val faileViewCnt = Workers.workOn(views, config.maxthreads) { p =>
-        val where = task.view.getWhere(p._1)
-        val total = source.count(p._1, where)
-        if (dataRange._1 <= total && total <= dataRange._2) {
-          pairs.add(Dataflow(p._1, p._2, where, total))
+      Workers.workOn(views, config.maxthreads) { p =>
+        try {
+          val where = task.view.getWhere(p._1)
+          val total = source.count(p._1, where)
+          if (dataRange._1 <= total && total <= dataRange._2) {
+            pairs.add(Dataflow(p._1, p._2, where, total))
+          }
+          scanReport.succeeded(p._1.qualifiedName)
+        } catch {
+          case e: Exception =>
+            scanReport.failed(p._1.qualifiedName, e)
+            SqlplusLogger.error(s"Scan view ${p._1.qualifiedName} failed", e)
         }
       }
-      success = success && faileViewCnt == 0
+      results += scanReport.result
       import scala.jdk.CollectionConverters.*
       taskTables.put(task, pairs.asScala)
       dataConverter.add(pairs.asScala)
     }
 
-    converters += dataConverter
+    val dataResult = dataConverter.start()
+    results += dataResult
 
+    // Cleanup may have removed only part of a failed table's structure.
+    // Best-effort recovery therefore attempts every selected key and index;
+    // individual DDL failures are collected without stopping later objects.
     val pks = dataConverter.primaryKeys
     if (pks.nonEmpty) {
       val pkConverter = new PrimaryKeyConverter(target, config.maxthreads)
       pkConverter.add(pks)
-      converters += pkConverter
+      results += pkConverter.start()
     }
 
     val indexConverter = new IndexConverter(target, config.maxthreads)
@@ -113,14 +127,23 @@ class Reactor(val config: Config) {
       if task.table.withIndex then
         indexConverter.add(taskTables(task).flatten(_.target.indexes))
     }
-    if indexConverter.payloadCount > 0 then converters += indexConverter
+    if indexConverter.payloadCount > 0 then results += indexConverter.start()
 
+    val uniqueKeyConverter = new UniqueKeyConverter(target, config.maxthreads)
+    config.tasks foreach { task =>
+      if task.table.withConstraint then
+        uniqueKeyConverter.add(taskTables(task).flatten(_.target.uniqueKeys))
+    }
+    if uniqueKeyConverter.payloadCount > 0 then results += uniqueKeyConverter.start()
+
+    // Foreign keys are last because their referenced key may be either a
+    // primary key or a unique key.
     val constraintConverter = new ConstraintConverter(target, config.maxthreads)
     config.tasks foreach { task =>
       if task.table.withConstraint then
         constraintConverter.add(taskTables(task).flatten(_.target.foreignKeys))
     }
-    if constraintConverter.payloadCount > 0 then converters += constraintConverter
+    if constraintConverter.payloadCount > 0 then results += constraintConverter.start()
 
     val sequenceConverter = new SequenceConverter(target)
     config.tasks foreach { task =>
@@ -137,16 +160,30 @@ class Reactor(val config: Config) {
         sequenceConverter.add(sequences)
       }
     }
-    if sequenceConverter.payloadCount > 0 then converters += sequenceConverter
-
-    for (converter <- converters) {
-      val rs = converter.start()
-      success = success && rs
-    }
+    if sequenceConverter.payloadCount > 0 then results += sequenceConverter.start()
 
     executeActions(config.target, config.afterActions)
+    results.foreach { result =>
+      SqlplusLogger.info(
+        s"${result.stage}: ${result.succeeded}/${result.total} succeeded, " +
+          s"${result.partials.size} partial, ${result.skipped} skipped, ${result.failures.size} failed")
+      result.partials.foreach { partial =>
+        val progress = (partial.transferredRows, partial.expectedRows) match {
+          case (Some(transferred), Some(expected)) => s" after $transferred/$expected rows"
+          case _ => ""
+        }
+        SqlplusLogger.warn(s"${result.stage} ${partial.item}$progress: ${partial.message}")
+      }
+      result.failures.foreach { failure =>
+        val progress = (failure.transferredRows, failure.expectedRows) match {
+          case (Some(transferred), Some(expected)) => s" after $transferred/$expected rows"
+          case _ => ""
+        }
+        SqlplusLogger.warn(s"${result.stage} ${failure.item}$progress: ${failure.message}")
+      }
+    }
     SqlplusLogger.info(s"transport complete using ${sw}")
-    success
+    results.forall(_.isSuccess)
   }
 
   def close(): Unit = {
