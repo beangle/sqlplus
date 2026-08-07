@@ -21,13 +21,11 @@ import org.beangle.commons.lang.ClassLoaders
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.must.Matchers
 
-import java.io.{File, FileInputStream}
-
 class ConfigTest extends AnyFunSpec, Matchers {
   describe("Config") {
     it("parse") {
-      val file = new File(ClassLoaders.getResource("h2h2.xml").get.toURI)
-      val config = Config(file.getParent, new FileInputStream(file))
+      val is = ClassLoaders.getResourceAsStream("h2h2.xml").get
+      val config = Config("test", is)
       assert(config.beforeActions.size == 1)
       val action1 = config.beforeActions.head
       assert(action1.contents.isEmpty)

@@ -2,31 +2,30 @@ import org.beangle.parent.Dependencies.*
 import org.beangle.parent.Settings.*
 import sbt.Keys.*
 
-ThisBuild / organization := "org.beangle.sqlplus"
-ThisBuild / version := "0.2.5-SNAPSHOT"
-
-ThisBuild / scmInfo := Some(
+organization := "org.beangle.sqlplus"
+version := "0.2.5-SNAPSHOT"
+scmInfo := Some(
   ScmInfo(
-    url("https://github.com/beangle/sqlplus"),
+    uri("https://github.com/beangle/sqlplus"),
     "scm:git@github.com:beangle/sqlplus.git"
   )
 )
 
-ThisBuild / developers := List(
+developers := List(
   Developer(
     id = "chaostone",
     name = "Tihua Duan",
     email = "duantihua@gmail.com",
-    url = url("http://github.com/duantihua")
+    url = uri("http://github.com/duantihua")
   )
 )
 
-ThisBuild / description := "The Beangle DB Utility"
-ThisBuild / homepage := Some(url("https://beangle.github.io/sqlplus/index.html"))
+description := "The Beangle DB Utility"
+homepage := Some(uri("https://beangle.github.io/sqlplus/index.html"))
 
-val beangle_commons = "org.beangle.commons" % "beangle-commons" % "6.2.1"
+val beangle_commons = "org.beangle.commons" % "beangle-commons" % "6.2.2"
 val beangle_template = "org.beangle.template" % "beangle-template" % "0.2.8"
-val beangle_jdbc = "org.beangle.jdbc" % "beangle-jdbc" % "1.1.10"
+val beangle_jdbc = "org.beangle.jdbc" % "beangle-jdbc" % "1.1.12-SNAPSHOT"
 
 val jline_version = "4.3.1"
 val jline = "org.jline" % "jline" % jline_version

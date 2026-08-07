@@ -17,6 +17,7 @@
 
 package org.beangle.sqlplus.transport
 
+import org.beangle.jdbc.script.{Directive, OracleParser}
 import org.h2.jdbcx.JdbcDataSource
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -25,16 +26,17 @@ class SqlActionTest extends AnyFunSpec, Matchers {
 
   describe("SqlAction") {
     it("defaults loop protection to fifty batches") {
-      val directive = SqlAction.parseLoopDirective("-- @loop import target_data").get
-      directive.batchSize shouldBe 100000
-      directive.maxBatches shouldBe 50
+      val statements = OracleParser.parse("-- @loop import target_data\ninsert into t select * from s;")
+      val directive = statements.head.directive(Directive.Loop).get
+      directive.param("batch-size") shouldBe None
+      directive.param("max-batches") shouldBe None
     }
 
     it("rejects loop directives on non-insert statements") {
       val ds = new JdbcDataSource
       ds.setURL("jdbc:h2:mem:invalid_loop;DB_CLOSE_DELAY=-1")
       val action = new SqlAction(
-        ds, SqlAction.readSqls("-- @loop batch-size=3\nupdate target_data set id=id;"))
+        ds, OracleParser.parse("-- @loop batch-size=3\nupdate target_data set id=id;"), ignoreError = false)
       an[IllegalArgumentException] should be thrownBy action.process()
     }
 
@@ -42,7 +44,7 @@ class SqlActionTest extends AnyFunSpec, Matchers {
       val ds = new JdbcDataSource
       ds.setURL("jdbc:h2:mem:explicit_limit;DB_CLOSE_DELAY=-1")
       val action = new SqlAction(
-        ds, SqlAction.readSqls("-- @loop batch-size=3\ninsert into t select * from s limit 3;"))
+        ds, OracleParser.parse("-- @loop batch-size=3\ninsert into t select * from s limit 3;"), ignoreError = false)
       val error = the[IllegalArgumentException] thrownBy action.process()
       error.getMessage should include("adds LIMIT automatically")
     }
@@ -57,7 +59,7 @@ class SqlActionTest extends AnyFunSpec, Matchers {
       val sql =
         """insert into missing_table values(1);
           |insert into action_result values(1);""".stripMargin
-      SqlAction.execute(ds, sql) shouldBe false
+      new SqlAction(ds, OracleParser.parse(sql)).process() shouldBe false
 
       val verify = ds.getConnection
       try {
@@ -88,7 +90,7 @@ class SqlActionTest extends AnyFunSpec, Matchers {
           |select s.id from source_data s
           |where not exists(select 1 from target_data t where t.id=s.id)
           |;""".stripMargin
-      new SqlAction(ds, SqlAction.readSqls(sql)).process() shouldBe true
+      new SqlAction(ds, OracleParser.parse(sql)).process() shouldBe true
 
       val verify = ds.getConnection
       try {

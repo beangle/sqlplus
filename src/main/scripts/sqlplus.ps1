@@ -61,18 +61,17 @@ function Add-MavenArtifact {
   }
 }
 
-$scalaVer = "2.13.16"
-$scala3Ver = "3.3.7"
-$beangleCommonsVer = "6.2.1"
+$scalaVer = "2.13.18"
+$scala3Ver = "3.3.8"
+$beangleCommonsVer = "6.2.2"
 $beangleTemplateVer = "0.2.8"
 $slf4jVer = "2.0.18"
-$logbackVer = "1.5.34"
+$logbackVer = "1.6.1"
 $commonsCompressVer = "1.28.0"
 $bootVer = "0.1.28"
 $beangleSqlplusVer = "0.2.4"
 
 Add-MavenArtifact "org.scala-lang" "scala-library" $scalaVer
-Add-MavenArtifact "org.scala-lang" "scala-reflect" $scalaVer
 Add-MavenArtifact "org.scala-lang" "scala3-library_3" $scala3Ver
 Add-MavenArtifact "org.beangle.commons" "beangle-commons" $beangleCommonsVer
 Add-MavenArtifact "org.apache.commons" "commons-compress" $commonsCompressVer

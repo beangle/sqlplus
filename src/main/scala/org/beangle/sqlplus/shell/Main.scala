@@ -28,10 +28,11 @@ import org.beangle.jdbc.ds.{DataSourceUtils, DatasourceConfig, Source}
 import org.beangle.jdbc.engine.Engines
 import org.beangle.jdbc.meta.*
 import org.beangle.jdbc.query.JdbcExecutor
+import org.beangle.jdbc.script.{Directive, Parser, Runner}
 import org.beangle.sqlplus.lint.TempTableFinder
 import org.beangle.sqlplus.lint.validator.SchemaValidator
 import org.beangle.sqlplus.transport.Config.{TableConfig, ViewConfig}
-import org.beangle.sqlplus.transport.{Config, Reactor, SqlAction}
+import org.beangle.sqlplus.transport.{Config, Reactor}
 import org.beangle.sqlplus.util.EncryptDataSourceUtils
 import org.beangle.template.freemarker.Configurator
 
@@ -228,17 +229,17 @@ object Main {
     if !file.exists() then
       fail(s"Cannot find ${file.getAbsolutePath}")
       return
-    val sqls = SqlAction.readSqls(file).filter { s =>
-      val t = s.trim
-      Strings.isNotBlank(t) && !t.startsWith("--")
-    }
-    if sqls.isEmpty then
+    val statements = Parser.readStatements(Parser.forEngine(src.engine), file.toURI)
+    if statements.isEmpty then
       info(s"no statements in ${file.getAbsolutePath}")
       return
-    info(s"executing ${sqls.size} statement(s) from ${file.getAbsolutePath}")
-    sqls.zipWithIndex.foreach { (sql, idx) =>
-      info(s"-- [${idx + 1}/${sqls.size}]")
-      execSql(src, sql, resultFormat)
+    info(s"executing ${statements.size} statement(s) from ${file.getAbsolutePath}")
+    statements.zipWithIndex.foreach { (statement, idx) =>
+      info(s"-- [${idx + 1}/${statements.size}]")
+      if statement.directive(Directive.Loop).isDefined then
+        Runner.execute(src.dataSource, Seq(statement), ignoreError = true)
+      else
+        execSql(src, statement.sql, resultFormat)
     }
   }
 

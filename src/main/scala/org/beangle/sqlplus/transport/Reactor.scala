@@ -24,6 +24,7 @@ import org.beangle.jdbc.ds.{DataSourceUtils, Source}
 import org.beangle.jdbc.engine.StoreCase
 import org.beangle.jdbc.meta.*
 import org.beangle.jdbc.meta.Schema.NameFilter
+import org.beangle.jdbc.script.Parser
 import org.beangle.sqlplus.SqlplusLogger
 import org.beangle.sqlplus.transport.Config.*
 import org.beangle.sqlplus.transport.converter.*
@@ -250,20 +251,21 @@ class Reactor(val config: Config) {
   }
 
   private def executeActions(source: Source, actions: Iterable[ActionConfig]): Boolean = {
+    val parser = Parser.forEngine(source.engine)
     var success = true
     actions foreach { acf =>
       val actionSuccess = acf.category match {
         case "script" =>
           acf.contents match
-            case Some(sqls) =>
+            case Some(contents) =>
               SqlplusLogger.info("execute sql scripts")
-              SqlAction.execute(source.dataSource, sqls)
+              new SqlAction(source.dataSource, parser.parse(contents)).process()
             case None =>
               if (acf.properties.contains("file")) {
                 val f = new File(acf.properties("file"))
                 require(f.exists(), "sql file:" + f.getAbsolutePath + " doesn't exists")
                 SqlplusLogger.info("execute sql scripts " + f.getAbsolutePath)
-                SqlAction.execute(source.dataSource, f)
+                new SqlAction(source.dataSource, Parser.readStatements(parser, f.toURI)).process()
               } else false
         case _ =>
           SqlplusLogger.warn("Cannot support " + acf.category)
