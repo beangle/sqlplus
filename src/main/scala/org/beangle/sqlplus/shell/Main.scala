@@ -32,7 +32,7 @@ import org.beangle.jdbc.script.{Directive, Parser, Runner}
 import org.beangle.sqlplus.lint.TempTableFinder
 import org.beangle.sqlplus.lint.validator.SchemaValidator
 import org.beangle.sqlplus.transport.Config.{TableConfig, ViewConfig}
-import org.beangle.sqlplus.transport.{Config, Reactor}
+import org.beangle.sqlplus.transport.{Config, DuckDBDumper, Reactor}
 import org.beangle.sqlplus.util.EncryptDataSourceUtils
 import org.beangle.template.freemarker.Configurator
 
@@ -128,6 +128,8 @@ object Main {
       case "report schema" => reportSchema(source)
       case "validate schema" => validateSchema(source)
       case "dump data" => dumpData(source)
+      case "dump duckdb" => dumpDuckData(source)
+      case "duck" => duckInfo()
       case "list tmp" => listTmp(source, shell)
       case "drop tmp" => dropTmp(source, shell)
       case "list schema" => listSchema(source)
@@ -141,6 +143,8 @@ object Main {
             applySpool(extractParam("spool ", cmd))
           else if cmd.equalsIgnoreCase("spool off") then
             applySpool("off")
+          else if cmd.startsWith("duck ") then
+            duckExec(cmd.substring(5).trim)
           else if cmd.startsWith("@") then
             execScript(source, cmd.substring(1).trim)
           else if cmd.startsWith("source ") then
@@ -484,6 +488,58 @@ object Main {
     new Reactor(Config(source, target, tasks)).start()
   }
 
+  def dumpDuckData(src: Source): Unit = {
+    val start = System.currentTimeMillis
+
+    val duckdbDir = Files.forName("~+/duckdb")
+    if (!duckdbDir.exists()) duckdbDir.mkdirs()
+    val duckdbFile = new File(duckdbDir, s"${src.name}.duckdb")
+    if (duckdbFile.exists()) duckdbFile.delete()
+
+    val schemaNames = if src.schema.isEmpty then MetadataLoader.schemas(src.dataSource) else src.schema.map(_.value).toSeq
+
+    info(s"start dumping into ${duckdbFile.getAbsolutePath}")
+    new DuckDBDumper(src.dataSource, duckdbFile).dumpAll(schemaNames)
+
+    val elapsed = System.currentTimeMillis - start
+    info(s"dump duckdb completed in ${elapsed}ms")
+  }
+
+  /** Path to the DuckDB dump file (created by `dump duckdb`); named after the source database. */
+  private def duckdbFile: File = new File(Files.forName("~+/duckdb"), s"${source.name}.duckdb")
+
+  /** Show DuckDB file info + usage hints. */
+  def duckInfo(): Unit = {
+    if !duckdbFile.exists() then
+      fail(s"DuckDB file not found: ${duckdbFile.getAbsolutePath}")
+      fail(s"Run 'dump duckdb' first.")
+    else
+      val sizeMb = duckdbFile.length() / 1024.0 / 1024.0
+      info(s"DuckDB file : ${duckdbFile.getAbsolutePath}")
+      info(s"Size         : ${f"$sizeMb%.2f"} MB")
+      info(s"Usage        : duck <sql>")
+      info(s"Example      : duck show tables;")
+      info(s"              duck select * from std.users limit 10;")
+  }
+
+  /** Execute a SQL against the local DuckDB dump file. */
+  def duckExec(sql: String): Unit = {
+    if !duckdbFile.exists() then
+      fail(s"DuckDB file not found: ${duckdbFile.getAbsolutePath}")
+      fail(s"Run 'dump duckdb' first.")
+      return
+    val config = new com.zaxxer.hikari.HikariConfig()
+    config.setJdbcUrl(s"jdbc:duckdb:${duckdbFile.getAbsolutePath}")
+    config.setDriverClassName("org.duckdb.DuckDBDriver")
+    config.setMaximumPoolSize(1)
+    val ds = new com.zaxxer.hikari.HikariDataSource(config)
+    try
+      val duckSrc = Source("duckdb", ds, None, None)
+      execSql(duckSrc, sql, resultFormat)
+    finally
+      ds.close()
+  }
+
   def dropTmp(src: Source, shell: LineShell): Unit = {
     val tmpPattern = shell.prompt("please input the tmp pattern:", "*log,*temp,temp*,*bak,bak*,*back,*old,old*,*tmp,tmp*,*{[0-9]+}")
     val engine = src.engine
@@ -544,6 +600,9 @@ object Main {
         |  report schema     create a html report of database
         |  validate schema   validate schema against a basis.xml
         |  dump data         dump data in h2 database
+        |  dump duckdb       dump data in duckdb database
+        |  duck              show local duckdb dump file info
+        |  duck <sql>        run sql against the local duckdb dump file
         |  list tmp          list temporary tables
         |  drop tmp          drop the temporary tables
         |  list schema       list all schema names

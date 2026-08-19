@@ -34,7 +34,8 @@ val jline_terminal_jni = "org.jline" % "jline-terminal-jni" % jline_version
 val commonDeps = Seq(beangle_commons, beangle_jdbc, beangle_template, jline, jline_terminal_jni,
   logback_classic, logback_core,
   scalatest, HikariCP, plantuml, freemarker,
-  postgresql, h2, jtds, ojdbc11, orai18n, mysql_connector_java, mssql_jdbc)
+  postgresql, h2, jtds, ojdbc11, orai18n, mysql_connector_java, mssql_jdbc,
+  "org.duckdb" % "duckdb_jdbc" % "1.5.5.1")
 
 lazy val root = (project in file("."))
   .settings(

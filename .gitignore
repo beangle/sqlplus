@@ -31,3 +31,8 @@ project/metals.sbt
 # Scala-IDE specific
 .scala_dependencies
 test-output
+
+# Local runtime artifacts (H2 / DuckDB dump files etc.)
+duckdb/
+*.mv.db
+*.trace.db

@@ -62,7 +62,8 @@ class ShellCompleter(meta: ShellCompleter.Meta = ShellCompleter.Meta.empty) exte
 
   private val phrases = Seq(
     "help", "info", "exit", "quit",
-    "dump schema", "report schema", "validate schema", "dump data",
+    "dump schema", "report schema", "validate schema", "dump data", "dump duckdb",
+    "duck", "duck ",
     "list tmp", "drop tmp", "list schema",
     "find ", "desc ", "use ",
     "set", "set limit ", "set width ", "set format ", "set format table", "set format vertical",
@@ -72,7 +73,7 @@ class ShellCompleter(meta: ShellCompleter.Meta = ShellCompleter.Meta.empty) exte
   private val words = Seq(
     "help", "info", "exit", "quit",
     "dump", "report", "validate", "list", "drop", "find", "desc", "use",
-    "schema", "data", "tmp",
+    "schema", "data", "duckdb", "duck", "tmp",
     "set", "limit", "width", "format", "table", "vertical",
     "spool", "off", "source",
     "select", "insert", "update", "delete", "alter", "create", "grant",

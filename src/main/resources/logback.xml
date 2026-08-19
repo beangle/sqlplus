@@ -5,6 +5,8 @@
       <pattern>%d{MM-dd HH:mm:ss.SSS} %-5level %logger{30} - %msg%n</pattern>
     </encoder>
   </appender>
+  <logger name="com.zaxxer.hikari" level="WARN"/>
+  <logger name="org.duckdb" level="WARN"/>
   <root level="INFO">
     <appender-ref ref="STDOUT" />
   </root>
