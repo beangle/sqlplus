@@ -23,11 +23,11 @@ developers := List(
 description := "The Beangle DB Utility"
 homepage := Some(uri("https://beangle.github.io/sqlplus/index.html"))
 
-val beangle_commons = "org.beangle.commons" % "beangle-commons" % "6.2.2"
-val beangle_template = "org.beangle.template" % "beangle-template" % "0.2.8"
-val beangle_jdbc = "org.beangle.jdbc" % "beangle-jdbc" % "1.1.12"
+val beangle_commons = "org.beangle.commons" % "beangle-commons" % "6.3.2"
+val beangle_template = "org.beangle.template" % "beangle-template" % "0.2.10"
+val beangle_jdbc = "org.beangle.jdbc" % "beangle-jdbc" % "1.1.14"
 
-val jline_version = "4.3.1"
+val jline_version = "4.4.2"
 val jline = "org.jline" % "jline" % jline_version
 val jline_terminal_jni = "org.jline" % "jline-terminal-jni" % jline_version
 
