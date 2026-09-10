@@ -3,7 +3,7 @@ import org.beangle.parent.Settings.*
 import sbt.Keys.*
 
 organization := "org.beangle.sqlplus"
-version := "0.2.6-SNAPSHOT"
+version := "0.2.6"
 scmInfo := Some(
   ScmInfo(
     uri("https://github.com/beangle/sqlplus"),
