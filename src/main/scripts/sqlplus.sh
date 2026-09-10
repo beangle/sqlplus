@@ -45,13 +45,13 @@ download(){
 
 export scala_ver=2.13.18
 export scala3_ver=3.3.8
-export beangle_commons_ver=6.2.2
-export beangle_template_ver=0.2.8
+export beangle_commons_ver=6.3.3
+export beangle_template_ver=0.2.12
 export slf4j_ver=2.0.18
-export logback_ver=1.6.1
+export logback_ver=1.6.3
 export commons_compress_ver=1.28.0
-export boot_ver=0.1.28
-export beangle_sqlplus_ver=0.2.5
+export boot_ver=0.1.29
+export beangle_sqlplus_ver=0.2.6-SNAPSHOT
 
 download org.scala-lang scala-library $scala_ver
 download org.scala-lang scala3-library_3 $scala3_ver
