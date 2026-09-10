@@ -25,7 +25,7 @@ homepage := Some(uri("https://beangle.github.io/sqlplus/index.html"))
 
 val beangle_commons = "org.beangle.commons" % "beangle-commons" % "6.3.3"
 val beangle_template = "org.beangle.template" % "beangle-template" % "0.2.12"
-val beangle_jdbc = "org.beangle.jdbc" % "beangle-jdbc" % "1.1.15"
+val beangle_jdbc = "org.beangle.jdbc" % "beangle-jdbc" % "1.1.16"
 
 val jline_version = "4.4.3"
 val jline = "org.jline" % "jline" % jline_version
