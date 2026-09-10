@@ -128,7 +128,7 @@ object Main {
       case "report schema" => reportSchema(source)
       case "validate schema" => validateSchema(source)
       case "dump data" => dumpData(source)
-      case "dump duckdb" => dumpDuckData(source)
+      case "dump duckdb" => dumpDuckData(source, shell)
       case "duck" => duckInfo()
       case "list tmp" => listTmp(source, shell)
       case "drop tmp" => dropTmp(source, shell)
@@ -488,7 +488,7 @@ object Main {
     new Reactor(Config(source, target, tasks)).start()
   }
 
-  def dumpDuckData(src: Source): Unit = {
+  def dumpDuckData(src: Source, shell: LineShell): Unit = {
     val start = System.currentTimeMillis
 
     val duckdbDir = Files.forName("~+/duckdb")
@@ -496,7 +496,23 @@ object Main {
     val duckdbFile = new File(duckdbDir, s"${src.name}.duckdb")
     if (duckdbFile.exists()) duckdbFile.delete()
 
-    val schemaNames = if src.schema.isEmpty then MetadataLoader.schemas(src.dataSource) else src.schema.map(_.value).toSeq
+    val allSchemas = if src.schema.isEmpty then MetadataLoader.schemas(src.dataSource) else src.schema.map(_.value).toSeq
+
+    // 交互: 列出 schema,让用户选择要忽略的
+    info(s"available schemas (${allSchemas.size}):")
+    info(allSchemas.mkString(", "))
+    val ignoreInput = shell.prompt("schemas to ignore (comma-separated, empty=none):", "")
+    val ignoreSet = Option(ignoreInput).map(_.trim)
+      .filter(_.nonEmpty)
+      .map(_.split("[,\\s]+").map(_.trim).filter(_.nonEmpty).toSet)
+      .getOrElse(Set.empty[String])
+    val schemaNames = allSchemas.filterNot(s => ignoreSet.contains(s))
+    if schemaNames.isEmpty then
+      info("no schema left to dump, aborted.")
+      return
+    if ignoreSet.nonEmpty then
+      info(s"ignored schemas: ${ignoreSet.mkString(", ")}")
+    info(s"dumping schemas: ${schemaNames.mkString(", ")}")
 
     info(s"start dumping into ${duckdbFile.getAbsolutePath}")
     new DuckDBDumper(src.dataSource, duckdbFile).dumpAll(schemaNames)
