@@ -33,6 +33,13 @@ object EncryptDataSourceUtils {
         (k, e.process(null, v))
       }
     }
+    // Oracle JDBC omits REMARKS unless remarksReporting=true. DataSourceUtils
+    // prefixes non-Hikari keys, so this becomes dataSource.remarksReporting.
+    // https://docs.oracle.com/en/database/oracle/oracle-database/21/jajdb/oracle/jdbc/OracleConnection.html#setRemarksReporting_boolean_
+    if (cfg.driver == "oracle" && !cfg.props.contains("remarksReporting")
+      && !cfg.props.contains("dataSource.remarksReporting")) {
+      cfg.props.put("remarksReporting", "true")
+    }
     cfg
   }
 

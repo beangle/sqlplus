@@ -153,6 +153,8 @@ class DefaultTableStore(val dataSource: DataSource, val engine: Engine) extends 
   override def create(table: Table): Unit = {
     if (getSchema(table).getTable(table.name.value).isEmpty) {
       executor.update(engine.createTable(table))
+      // MySQL embeds comments in CREATE TABLE. PostgreSQL/Oracle/H2 need COMMENT ON.
+      engine.commentsOnTable(table, false).foreach(sql => executor.update(sql))
       SqlplusLogger.info(s"Create table ${table.name}")
     }
   }
