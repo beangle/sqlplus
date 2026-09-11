@@ -69,7 +69,7 @@ $slf4jVer = "2.0.18"
 $logbackVer = "1.6.3"
 $commonsCompressVer = "1.28.0"
 $bootVer = "0.1.29"
-$beangleSqlplusVer = "0.2.6"
+$beangleSqlplusVer = "0.2.7"
 
 Add-MavenArtifact "org.scala-lang" "scala-library" $scalaVer
 Add-MavenArtifact "org.scala-lang" "scala3-library_3" $scala3Ver

@@ -17,7 +17,8 @@
 
 package org.beangle.sqlplus.transport
 
-import org.beangle.jdbc.script.{Runner, Statement}
+import org.beangle.commons.lang.time.Stopwatch
+import org.beangle.jdbc.script.{Directive, Runner, Statement}
 import org.beangle.sqlplus.SqlplusLogger
 
 import javax.sql.DataSource
@@ -31,12 +32,20 @@ case class ActionConfig(category: String, contents: Option[String], properties: 
 class SqlAction(val dataSource: DataSource, statements: Seq[Statement], ignoreError: Boolean = true) extends Action {
 
   def process(): Boolean = {
-    // progress log for leading comments, skip directive lines like `-- @loop ...`
-    statements.foreach { s =>
-      s.comments.foreach { c =>
-        if (!c.trim.startsWith("-- @")) SqlplusLogger.info(c.stripPrefix("--").trim)
-      }
-    }
-    Runner.execute(dataSource, statements, ignoreError = ignoreError)
+    Runner.execute(dataSource, statements, ignoreError = ignoreError, onUpdate = { (statement, rows, sw) =>
+      val comment = progressComment(statement)
+      if comment.nonEmpty && rows >= 0 then
+        SqlplusLogger.info(comment + s" ${rows}, using ${sw}")
+    })
+  }
+
+  /** First leading `--` comment, same label the old SqlAction logged with the update count. */
+  private def progressComment(statement: Statement): String = {
+    if statement.directive(Directive.Loop).isDefined then ""
+    else
+      statement.comments
+        .map(_.stripPrefix("--").trim)
+        .find(c => c.nonEmpty && !c.startsWith("@"))
+        .getOrElse("")
   }
 }

@@ -49,6 +49,22 @@ class SqlActionTest extends AnyFunSpec, Matchers {
       error.getMessage should include("adds LIMIT automatically")
     }
 
+    it("keeps the comment plus affected-row progress log") {
+      val ds = new JdbcDataSource
+      ds.setURL("jdbc:h2:mem:action_rows;DB_CLOSE_DELAY=-1")
+      val conn = ds.getConnection
+      try conn.createStatement().execute("create table staffs(code varchar(20), department_id int)")
+      finally conn.close()
+
+      val sql =
+        """-- Remove staffs that disappeared from staffs_new
+          |delete from staffs where code in('missing');
+          |-- Insert new staffs from staffs_new
+          |insert into staffs values('298437', 1);
+          |""".stripMargin
+      new SqlAction(ds, OracleParser.parse(sql)).process() shouldBe true
+    }
+
     it("returns failure while continuing later best-effort statements") {
       val ds = new JdbcDataSource
       ds.setURL("jdbc:h2:mem:action_failure;DB_CLOSE_DELAY=-1")
